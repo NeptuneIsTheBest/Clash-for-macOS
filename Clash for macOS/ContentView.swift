@@ -15,6 +15,8 @@ struct ContentView: View {
                     ProxiesView()
                 case .profiles:
                     ProfilesView()
+                case .rules:
+                    RulesView()
                 case .ruleProviders:
                     RuleProvidersView()
                 case .connections:

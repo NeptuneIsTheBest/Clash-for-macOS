@@ -336,6 +336,70 @@ struct CoreManagementView: View {
     var body: some View {
         SettingsSection(title: "Core Management", icon: "cpu") {
             VStack(spacing: 16) {
+                SettingsRow(title: "Core Status", subtitle: "Clash core running state") {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(coreManager.isRunning ? Color.green : Color.gray)
+                            .frame(width: 8, height: 8)
+                        Text(coreManager.isRunning ? "Running" : "Stopped")
+                            .font(.system(size: 12))
+                            .foregroundStyle(coreManager.isRunning ? .green : .secondary)
+                    }
+                }
+                
+                Divider().background(Color.gray.opacity(0.3))
+                
+                HStack(spacing: 12) {
+                    if coreManager.isRunning {
+                        Button(action: { coreManager.stopCore() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "stop.fill")
+                                Text("Stop")
+                            }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.red)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: { coreManager.restartCore() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Restart")
+                            }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.orange)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: { coreManager.startCore() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "play.fill")
+                                Text("Start")
+                            }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(isCoreInstalled ? Color.green : Color.gray)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!isCoreInstalled)
+                    }
+                    
+                    Spacer()
+                }
+                
+                Divider().background(Color.gray.opacity(0.3))
+                
                 SettingsRow(title: "Core Type", subtitle: "Select Clash core variant") {
                     Picker("", selection: Binding(
                         get: { coreManager.currentCoreType },
@@ -347,6 +411,7 @@ struct CoreManagementView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 160)
+                    .disabled(coreManager.isRunning)
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
@@ -395,11 +460,11 @@ struct CoreManagementView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(coreManager.isDownloading ? Color.gray : Color.blue)
+                        .background(coreManager.isDownloading || coreManager.isRunning ? Color.gray : Color.blue)
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
-                    .disabled(coreManager.isDownloading)
+                    .disabled(coreManager.isDownloading || coreManager.isRunning)
                     
                     if isCoreInstalled {
                         Button(action: {
@@ -413,10 +478,11 @@ struct CoreManagementView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Color.red)
+                            .background(coreManager.isRunning ? Color.gray : Color.red)
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
+                        .disabled(coreManager.isRunning)
                         .alert("Delete Core", isPresented: $showDeleteConfirm) {
                             Button("Cancel", role: .cancel) {}
                             Button("Delete", role: .destructive) {

@@ -33,6 +33,15 @@ class AppSettings {
     
     private init() {
         loadSettings()
+        if secret.isEmpty {
+            generateSecret()
+        }
+    }
+    
+    func generateSecret() {
+        let length = 32
+        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        secret = String((0..<length).map { _ in characters.randomElement()! })
     }
     
     

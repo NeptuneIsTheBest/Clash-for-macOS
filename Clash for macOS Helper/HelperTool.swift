@@ -1,21 +1,95 @@
 import Foundation
+import Security
 
 class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
     private var clashProcess: Process?
     private var clashProcessPID: Int32 = 0
+    private let processLock = NSLock()
+    
+    private let allowedCommands: Set<String> = [
+        "/usr/sbin/networksetup",
+        "/sbin/route",
+        "/usr/bin/killall",
+        "/bin/launchctl"
+    ]
     
     func run() {
+        setupSignalHandlers()
+        
         let listener = NSXPCListener(machServiceName: kHelperToolMachServiceName)
         listener.delegate = self
         listener.resume()
         RunLoop.current.run()
     }
     
+    private func setupSignalHandlers() {
+        let signalCallback: @convention(c) (Int32) -> Void = { signal in
+            HelperTool.handleSignal(signal)
+        }
+        
+        signal(SIGTERM, signalCallback)
+        signal(SIGINT, signalCallback)
+    }
+    
+    private static func handleSignal(_ sig: Int32) {
+        exit(0)
+    }
+    
+    deinit {
+        cleanupClashProcess()
+    }
+    
+    private func cleanupClashProcess() {
+        processLock.lock()
+        defer { processLock.unlock() }
+        
+        if let process = clashProcess, process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+        }
+        clashProcess = nil
+        clashProcessPID = 0
+    }
+    
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
+        guard isValidClient(connection: newConnection) else {
+            return false
+        }
+        
         newConnection.exportedInterface = NSXPCInterface(with: HelperProtocol.self)
         newConnection.exportedObject = self
+        
+        newConnection.invalidationHandler = { [weak self] in
+            self?.handleConnectionInvalidation()
+        }
+        
         newConnection.resume()
         return true
+    }
+    
+    private func isValidClient(connection: NSXPCConnection) -> Bool {
+        let pid = connection.processIdentifier
+        guard pid > 0 else { return false }
+        
+        var code: SecCode?
+        let status = SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid: pid] as CFDictionary, [], &code)
+        
+        guard status == errSecSuccess, let secCode = code else {
+            return false
+        }
+        
+        let requirement = "identifier \"com.neptuneisthebest.Clash-for-macOS\""
+        var secRequirement: SecRequirement?
+        
+        guard SecRequirementCreateWithString(requirement as CFString, [], &secRequirement) == errSecSuccess,
+              let req = secRequirement else {
+            return false
+        }
+        
+        return SecCodeCheckValidity(secCode, [], req) == errSecSuccess
+    }
+    
+    private func handleConnectionInvalidation() {
     }
     
     func getVersion(withReply reply: @escaping (String) -> Void) {
@@ -91,9 +165,30 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
     }
     
     func startClashCore(executablePath: String, configPath: String, workingDirectory: String, withReply reply: @escaping (Bool, Int32, String?) -> Void) {
-        if clashProcess != nil && clashProcess!.isRunning {
-            clashProcess?.terminate()
-            clashProcess?.waitUntilExit()
+        processLock.lock()
+        
+        if let existingProcess = clashProcess, existingProcess.isRunning {
+            existingProcess.terminate()
+            existingProcess.waitUntilExit()
+        }
+        clashProcess = nil
+        clashProcessPID = 0
+        
+        processLock.unlock()
+        
+        guard FileManager.default.fileExists(atPath: executablePath) else {
+            reply(false, 0, "Executable not found: \(executablePath)")
+            return
+        }
+        
+        guard FileManager.default.isExecutableFile(atPath: executablePath) else {
+            reply(false, 0, "File is not executable: \(executablePath)")
+            return
+        }
+        
+        guard FileManager.default.fileExists(atPath: configPath) else {
+            reply(false, 0, "Config file not found: \(configPath)")
+            return
         }
         
         let process = Process()
@@ -106,20 +201,41 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
         process.standardOutput = outputPipe
         process.standardError = errorPipe
         
+        process.terminationHandler = { [weak self] terminatedProcess in
+            self?.processLock.lock()
+            if self?.clashProcess === terminatedProcess {
+                self?.clashProcess = nil
+                self?.clashProcessPID = 0
+            }
+            self?.processLock.unlock()
+        }
+        
         do {
             try process.run()
+            
+            processLock.lock()
             clashProcess = process
             clashProcessPID = process.processIdentifier
+            processLock.unlock()
             
             DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                if process.isRunning {
+                self?.processLock.lock()
+                let isRunning = process.isRunning
+                self?.processLock.unlock()
+                
+                if isRunning {
                     reply(true, process.processIdentifier, nil)
                 } else {
                     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorString = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                    let errorString = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let finalError = errorString?.isEmpty == false ? errorString : "Process exited unexpectedly"
+                    
+                    self?.processLock.lock()
                     self?.clashProcess = nil
                     self?.clashProcessPID = 0
-                    reply(false, 0, errorString)
+                    self?.processLock.unlock()
+                    
+                    reply(false, 0, finalError)
                 }
             }
         } catch {
@@ -128,36 +244,73 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
     }
     
     func stopClashCore(withReply reply: @escaping (Bool, String?) -> Void) {
-        guard let process = clashProcess, process.isRunning else {
-            clashProcess = nil
-            clashProcessPID = 0
+        processLock.lock()
+        guard let process = clashProcess else {
+            processLock.unlock()
             reply(true, nil)
             return
         }
         
+        guard process.isRunning else {
+            clashProcess = nil
+            clashProcessPID = 0
+            processLock.unlock()
+            reply(true, nil)
+            return
+        }
+        processLock.unlock()
+        
         process.terminate()
         
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            if process.isRunning {
-                process.interrupt()
+        DispatchQueue.global().async { [weak self] in
+            var waited = 0
+            while process.isRunning && waited < 20 {
+                Thread.sleep(forTimeInterval: 0.1)
+                waited += 1
             }
+            
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                process.waitUntilExit()
+            }
+            
+            self?.processLock.lock()
             self?.clashProcess = nil
             self?.clashProcessPID = 0
+            self?.processLock.unlock()
+            
             reply(true, nil)
         }
     }
     
     func isClashCoreRunning(withReply reply: @escaping (Bool, Int32) -> Void) {
-        if let process = clashProcess, process.isRunning {
-            reply(true, process.processIdentifier)
+        processLock.lock()
+        defer { processLock.unlock() }
+        
+        if let process = clashProcess {
+            if process.isRunning {
+                reply(true, process.processIdentifier)
+            } else {
+                clashProcess = nil
+                clashProcessPID = 0
+                reply(false, 0)
+            }
         } else {
-            clashProcess = nil
-            clashProcessPID = 0
             reply(false, 0)
         }
     }
     
     func runPrivilegedCommand(command: String, arguments: [String], withReply reply: @escaping (Bool, String?, String?) -> Void) {
+        guard allowedCommands.contains(command) else {
+            reply(false, nil, "Command not allowed: \(command)")
+            return
+        }
+        
+        guard FileManager.default.fileExists(atPath: command) else {
+            reply(false, nil, "Command not found: \(command)")
+            return
+        }
+        
         let process = Process()
         process.executableURL = URL(fileURLWithPath: command)
         process.arguments = arguments
@@ -167,23 +320,25 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
         process.standardOutput = outputPipe
         process.standardError = errorPipe
         
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            
-            let output = String(data: outputData, encoding: .utf8)
-            let errorOutput = String(data: errorData, encoding: .utf8)
-            
-            if process.terminationStatus == 0 {
-                reply(true, output, nil)
-            } else {
-                reply(false, output, errorOutput)
+        DispatchQueue.global().async {
+            do {
+                try process.run()
+                process.waitUntilExit()
+                
+                let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                
+                let output = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let errorOutput = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                if process.terminationStatus == 0 {
+                    reply(true, output, nil)
+                } else {
+                    reply(false, output, errorOutput)
+                }
+            } catch {
+                reply(false, nil, error.localizedDescription)
             }
-        } catch {
-            reply(false, nil, error.localizedDescription)
         }
     }
     

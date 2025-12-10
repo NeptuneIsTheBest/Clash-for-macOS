@@ -45,8 +45,10 @@ class ClashCoreManager {
     
     var currentCoreType: ClashCoreType = .meta
     var coreStatus: CoreStatus = .notInstalled
+    var isRunning = false
     
     private var installedVersions: [ClashCoreType: String] = [:]
+    private var coreProcess: Process?
     
     var latestVersion: String = ""
     var isDownloading = false
@@ -82,6 +84,7 @@ class ClashCoreManager {
     private init() {
         loadSettings()
         checkInstalledCore()
+        checkRunningStatus()
     }
     
     private func loadSettings() {
@@ -239,11 +242,141 @@ class ClashCoreManager {
     }
     
     func deleteCore() throws {
+        stopCore()
         if fileManager.fileExists(atPath: corePath.path) {
             try fileManager.removeItem(at: corePath)
         }
         installedVersions.removeValue(forKey: currentCoreType)
         saveSettings()
         coreStatus = .notInstalled
+    }
+    
+    var configDirectory: URL {
+        let dir = appSupportDirectory.appendingPathComponent("config", isDirectory: true)
+        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    
+    var configPath: URL {
+        configDirectory.appendingPathComponent("config.yaml")
+    }
+    
+    private var useServiceMode: Bool {
+        HelperManager.shared.isHelperInstalled && AppSettings.shared.serviceMode
+    }
+    
+    func startCore() {
+        guard !isRunning else { return }
+        guard fileManager.fileExists(atPath: corePath.path) else { return }
+        
+        ensureDefaultConfig()
+        
+        if useServiceMode {
+            startCoreWithHelper()
+        } else {
+            startCoreDirectly()
+        }
+    }
+    
+    private func startCoreWithHelper() {
+        HelperManager.shared.startClashCore(
+            executablePath: corePath.path,
+            configPath: configPath.path,
+            workingDirectory: configDirectory.path
+        ) { [weak self] success, pid, error in
+            if success {
+                self?.isRunning = true
+                self?.coreProcess = nil
+            } else {
+                print("Failed to start core via helper: \(error ?? "Unknown error")")
+                self?.isRunning = false
+            }
+        }
+    }
+    
+    private func startCoreDirectly() {
+        let process = Process()
+        process.executableURL = corePath
+        process.arguments = ["-d", configDirectory.path]
+        process.currentDirectoryURL = configDirectory
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        process.terminationHandler = { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.isRunning = false
+                self?.coreProcess = nil
+            }
+        }
+        
+        do {
+            try process.run()
+            coreProcess = process
+            isRunning = true
+        } catch {
+            print("Failed to start core: \(error)")
+            isRunning = false
+        }
+    }
+    
+    func stopCore() {
+        guard isRunning else { return }
+        
+        if useServiceMode {
+            stopCoreWithHelper()
+        } else {
+            stopCoreDirectly()
+        }
+    }
+    
+    private func stopCoreWithHelper() {
+        HelperManager.shared.stopClashCore { [weak self] success, error in
+            if success {
+                self?.isRunning = false
+            } else {
+                print("Failed to stop core via helper: \(error ?? "Unknown error")")
+            }
+        }
+    }
+    
+    private func stopCoreDirectly() {
+        guard let process = coreProcess else { return }
+        process.terminate()
+        coreProcess = nil
+        isRunning = false
+    }
+    
+    func restartCore() {
+        stopCore()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.startCore()
+        }
+    }
+    
+    func checkRunningStatus() {
+        if HelperManager.shared.isHelperInstalled {
+            HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
+                self?.isRunning = running
+            }
+        }
+    }
+    
+    private func ensureDefaultConfig() {
+        guard !fileManager.fileExists(atPath: configPath.path) else { return }
+        
+        let settings = AppSettings.shared
+        let defaultConfig = """
+mixed-port: \(settings.mixedPort)
+port: \(settings.httpPort)
+socks-port: \(settings.socksPort)
+allow-lan: \(settings.allowLAN)
+log-level: \(settings.logLevel.rawValue.lowercased())
+external-controller: \(settings.externalController)
+secret: \(settings.secret)
+ipv6: \(settings.ipv6)
+"""
+        try? defaultConfig.write(to: configPath, atomically: true, encoding: .utf8)
     }
 }
