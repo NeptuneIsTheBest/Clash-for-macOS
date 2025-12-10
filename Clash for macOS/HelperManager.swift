@@ -1,5 +1,6 @@
 import Foundation
 import ServiceManagement
+import Security
 
 @Observable
 class HelperManager {
@@ -7,12 +8,15 @@ class HelperManager {
     
     private(set) var isHelperInstalled = false
     private(set) var helperVersion: String = ""
+    private(set) var embeddedHelperVersion: String = ""
+    private(set) var helperNeedsUpdate = false
     private var xpcConnection: NSXPCConnection?
     
     private let helperBundleID = "com.neptuneisthebest.Clash-for-macOS-Helper"
     private let helperPath = "/Library/PrivilegedHelperTools/Clash for macOS Helper"
     
     private init() {
+        loadEmbeddedHelperVersion()
         checkHelperStatus()
     }
     
@@ -24,6 +28,105 @@ class HelperManager {
             getHelperVersion { [weak self] version in
                 DispatchQueue.main.async {
                     self?.helperVersion = version
+                    self?.checkIfUpdateNeeded()
+                }
+            }
+        } else {
+            helperVersion = ""
+            helperNeedsUpdate = false
+        }
+    }
+    
+    private func loadEmbeddedHelperVersion() {
+        let helperName = "com.neptuneisthebest.Clash-for-macOS-Helper"
+        let bundleURL = Bundle.main.bundleURL
+        
+        let possibleURLs = [
+            bundleURL.appendingPathComponent("Contents/Library/LaunchServices/\(helperName)"),
+            bundleURL.appendingPathComponent("Contents/Library/LaunchDaemons/\(helperName)")
+        ]
+        
+        var helperURL: URL?
+        for url in possibleURLs {
+            if FileManager.default.fileExists(atPath: url.path) {
+                helperURL = url
+                break
+            }
+        }
+        
+        guard let url = helperURL else {
+            embeddedHelperVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+            return
+        }
+        
+        var staticCode: SecStaticCode?
+        if SecStaticCodeCreateWithPath(url as CFURL, [], &staticCode) == errSecSuccess,
+           let code = staticCode {
+            var info: CFDictionary?
+            if SecCodeCopySigningInformation(code, [], &info) == errSecSuccess,
+               let infoDict = info as? [String: Any],
+               let plist = infoDict[kSecCodeInfoPList as String] as? [String: Any],
+               let version = plist["CFBundleShortVersionString"] as? String {
+                embeddedHelperVersion = version
+                return
+            }
+        }
+        
+        embeddedHelperVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+    
+    private func checkIfUpdateNeeded() {
+        guard !helperVersion.isEmpty, !embeddedHelperVersion.isEmpty else {
+            helperNeedsUpdate = false
+            return
+        }
+        helperNeedsUpdate = compareVersions(helperVersion, embeddedHelperVersion) == .orderedAscending
+    }
+    
+    private func compareVersions(_ v1: String, _ v2: String) -> ComparisonResult {
+        let components1 = v1.split(separator: ".").compactMap { Int($0) }
+        let components2 = v2.split(separator: ".").compactMap { Int($0) }
+        
+        let maxCount = max(components1.count, components2.count)
+        
+        for i in 0..<maxCount {
+            let num1 = i < components1.count ? components1[i] : 0
+            let num2 = i < components2.count ? components2[i] : 0
+            
+            if num1 < num2 {
+                return .orderedAscending
+            } else if num1 > num2 {
+                return .orderedDescending
+            }
+        }
+        
+        return .orderedSame
+    }
+    
+    func updateHelper(completion: @escaping (Bool, String?) -> Void) {
+        let service = SMAppService.daemon(plistName: "com.neptuneisthebest.Clash-for-macOS-Helper.plist")
+        
+        do {
+            try service.unregister()
+        } catch {
+        }
+        
+        xpcConnection?.invalidate()
+        xpcConnection = nil
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            do {
+                try service.register()
+                DispatchQueue.main.async {
+                    self?.checkHelperStatus()
+                }
+                completion(true, nil)
+            } catch {
+                let nsError = error as NSError
+                if nsError.domain == "SMAppServiceErrorDomain" && nsError.code == 1 {
+                    completion(false, "User cancelled authorization")
+                } else {
+                    completion(false, error.localizedDescription)
                 }
             }
         }

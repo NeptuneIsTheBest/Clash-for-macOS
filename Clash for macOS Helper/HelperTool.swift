@@ -19,7 +19,7 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
     }
     
     func getVersion(withReply reply: @escaping (String) -> Void) {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
         reply(version)
     }
     

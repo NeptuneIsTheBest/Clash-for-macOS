@@ -447,6 +447,7 @@ struct ServiceModeSettingsView: View {
     private var helperManager = HelperManager.shared
     @State private var isInstalling = false
     @State private var isUninstalling = false
+    @State private var isUpdating = false
     @State private var showInstallError = false
     @State private var installErrorMessage = ""
     
@@ -469,12 +470,18 @@ struct ServiceModeSettingsView: View {
                 SettingsRow(title: "Helper Status", subtitle: "Privileged helper for system integration") {
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(helperManager.isHelperInstalled ? Color.green : Color.orange)
+                            .fill(helperManager.isHelperInstalled ? (helperManager.helperNeedsUpdate ? Color.orange : Color.green) : Color.orange)
                             .frame(width: 8, height: 8)
                         if helperManager.isHelperInstalled {
-                            Text("v\(helperManager.helperVersion)")
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(.green)
+                            if helperManager.helperNeedsUpdate {
+                                Text("v\(helperManager.helperVersion) → v\(helperManager.embeddedHelperVersion)")
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .foregroundStyle(.orange)
+                            } else {
+                                Text("v\(helperManager.helperVersion)")
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .foregroundStyle(.green)
+                            }
                         } else {
                             Text("Not Installed")
                                 .font(.system(size: 12))
@@ -507,6 +514,28 @@ struct ServiceModeSettingsView: View {
                         .buttonStyle(.plain)
                         .disabled(isInstalling)
                     } else {
+                        if helperManager.helperNeedsUpdate {
+                            Button(action: updateHelper) {
+                                HStack(spacing: 6) {
+                                    if isUpdating {
+                                        ProgressView()
+                                            .scaleEffect(0.7)
+                                    } else {
+                                        Image(systemName: "arrow.clockwise")
+                                    }
+                                    Text(isUpdating ? "Updating..." : "Update Helper")
+                                }
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(isUpdating ? Color.gray : Color.blue)
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isUpdating)
+                        }
+                        
                         Button(action: uninstallHelper) {
                             HStack(spacing: 6) {
                                 if isUninstalling {
@@ -568,6 +597,18 @@ struct ServiceModeSettingsView: View {
         
         helperManager.uninstallHelper { success, error in
             isUninstalling = false
+            if !success {
+                installErrorMessage = error ?? "Unknown error"
+                showInstallError = true
+            }
+        }
+    }
+    
+    private func updateHelper() {
+        isUpdating = true
+        
+        helperManager.updateHelper { success, error in
+            isUpdating = false
             if !success {
                 installErrorMessage = error ?? "Unknown error"
                 showInstallError = true
