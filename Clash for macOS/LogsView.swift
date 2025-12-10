@@ -1,10 +1,12 @@
 import SwiftUI
+import Observation
 
 enum LogLevel: String, CaseIterable {
     case debug = "DEBUG"
     case info = "INFO"
     case warning = "WARNING"
     case error = "ERROR"
+    case silent = "SILENT"
     
     var color: Color {
         switch self {
@@ -12,6 +14,7 @@ enum LogLevel: String, CaseIterable {
         case .info: return .blue
         case .warning: return .orange
         case .error: return .red
+        case .silent: return .secondary
         }
     }
 }
@@ -24,26 +27,87 @@ struct LogEntry: Identifiable {
     let payload: String
 }
 
+struct ClashLogMessage: Codable {
+    let type: String
+    let payload: String
+}
+
+@Observable
+class LogViewModel {
+    var logs: [LogEntry] = []
+    var isStreaming = false
+    private var streamTask: Task<Void, Never>?
+    
+    func startStreaming() {
+        guard !isStreaming else { return }
+        isStreaming = true
+        
+        streamTask = Task { @MainActor in
+            do {
+                let stream = ClashAPI.shared.getLogsStream()
+                for try await line in stream {
+                    if let data = line.data(using: .utf8),
+                       let message = try? JSONDecoder().decode(ClashLogMessage.self, from: data) {
+                        
+                        let levelString = message.type.uppercased()
+                        let level = LogLevel(rawValue: levelString) ?? .info
+                        
+                        let (type, payload) = parsePayload(message.payload)
+                        
+                        let entry = LogEntry(
+                            timestamp: Date(),
+                            level: level,
+                            type: type,
+                            payload: payload
+                        )
+                        
+                        logs.insert(entry, at: 0)
+                        
+                        // Limit logs to avoid memory issues
+                        if logs.count > 1000 {
+                            logs.removeLast()
+                        }
+                    }
+                }
+            } catch {
+                print("Log stream error: \(error)")
+                isStreaming = false
+            }
+        }
+    }
+    
+    func stopStreaming() {
+        streamTask?.cancel()
+        streamTask = nil
+        isStreaming = false
+    }
+    
+    func clear() {
+        logs.removeAll()
+    }
+    
+    private func parsePayload(_ payload: String) -> (String, String) {
+        // Try to extract [Type] from start of string
+        if payload.hasPrefix("[") {
+            if let endIndex = payload.firstIndex(of: "]") {
+                let typeStart = payload.index(after: payload.startIndex)
+                let type = String(payload[typeStart..<endIndex])
+                let contentStart = payload.index(after: endIndex)
+                let content = String(payload[contentStart...]).trimmingCharacters(in: .whitespaces)
+                return (type, content)
+            }
+        }
+        return ("Core", payload)
+    }
+}
+
 struct LogsView: View {
+    @State private var viewModel = LogViewModel()
     @State private var searchText = ""
     @State private var selectedLevel: LogLevel? = nil
-    @State private var logs: [LogEntry] = [
-        LogEntry(timestamp: Date(), level: .info, type: "dns", payload: "Resolved google.com to 142.250.190.46"),
-        LogEntry(timestamp: Date().addingTimeInterval(-5), level: .info, type: "proxy", payload: "Matched rule DOMAIN-SUFFIX,google.com using Proxy"),
-        LogEntry(timestamp: Date().addingTimeInterval(-10), level: .debug, type: "tcp", payload: "Connection established to 142.250.190.46:443"),
-        LogEntry(timestamp: Date().addingTimeInterval(-15), level: .warning, type: "dns", payload: "DNS query timeout for api.example.com"),
-        LogEntry(timestamp: Date().addingTimeInterval(-20), level: .error, type: "proxy", payload: "Failed to connect to proxy server: connection refused"),
-        LogEntry(timestamp: Date().addingTimeInterval(-25), level: .info, type: "rule", payload: "Matched GEOIP,CN using Direct"),
-        LogEntry(timestamp: Date().addingTimeInterval(-30), level: .debug, type: "tcp", payload: "Connection closed: github.com:443"),
-        LogEntry(timestamp: Date().addingTimeInterval(-35), level: .info, type: "dns", payload: "Resolved twitter.com to 104.244.42.193"),
-        LogEntry(timestamp: Date().addingTimeInterval(-40), level: .info, type: "proxy", payload: "Matched rule DOMAIN-KEYWORD,twitter using Proxy"),
-        LogEntry(timestamp: Date().addingTimeInterval(-45), level: .warning, type: "proxy", payload: "High latency detected on HK Server: 350ms"),
-        LogEntry(timestamp: Date().addingTimeInterval(-50), level: .info, type: "rule", payload: "Matched DOMAIN-SUFFIX,baidu.com using Direct"),
-        LogEntry(timestamp: Date().addingTimeInterval(-55), level: .debug, type: "udp", payload: "UDP session started: 8.8.8.8:53"),
-    ]
     
     var filteredLogs: [LogEntry] {
-        logs.filter { log in
+        viewModel.logs.filter { log in
             let matchesSearch = searchText.isEmpty || 
                 log.payload.localizedCaseInsensitiveContains(searchText) ||
                 log.type.localizedCaseInsensitiveContains(searchText)
@@ -55,9 +119,23 @@ struct LogsView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            SettingsHeader(title: "Logs", subtitle: "\(logs.count) entries") {
-                ClearButton(title: "Clear") {
-                    logs.removeAll()
+            SettingsHeader(title: "Logs", subtitle: "\(viewModel.logs.count) entries") {
+                HStack {
+                    if viewModel.isStreaming {
+                        Button(action: { viewModel.stopStreaming() }) {
+                            Image(systemName: "pause.circle")
+                        }
+                        .help("Pause Logs")
+                    } else {
+                        Button(action: { viewModel.startStreaming() }) {
+                            Image(systemName: "play.circle")
+                        }
+                        .help("Resume Logs")
+                    }
+                    
+                    ClearButton(title: "Clear") {
+                        viewModel.clear()
+                    }
                 }
             }
             .padding(.horizontal, 30)
@@ -99,6 +177,12 @@ struct LogsView: View {
                 .padding(.bottom, 30)
             }
         }
+        .onAppear {
+            viewModel.startStreaming()
+        }
+        .onDisappear {
+            viewModel.stopStreaming()
+        }
     }
 }
 
@@ -130,7 +214,7 @@ struct LogRow: View {
             Text(log.payload)
                 .font(.system(size: 12))
                 .foregroundStyle(.primary)
-                .lineLimit(2)
+                .textSelection(.enabled)
             
             Spacer()
         }

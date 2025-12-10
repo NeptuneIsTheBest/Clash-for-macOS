@@ -1,41 +1,36 @@
 import SwiftUI
 
-struct Profile: Identifiable, Equatable {
-    let id = UUID()
-    var name: String
-    var type: ProfileType
-    var url: String?
-    var lastUpdated: Date
-    var traffic: String?
-    
-    enum ProfileType {
-        case remote
-        case local
-    }
-}
-
 struct ProfilesView: View {
     @State private var importURL: String = ""
-    @State private var selectedProfileId: UUID?
-    @State private var profiles: [Profile] = [
-        Profile(name: "Default Config", type: .local, lastUpdated: Date(), traffic: "1.2 GB"),
-        Profile(name: "Remote Server A", type: .remote, url: "https://example.com/config.yaml", lastUpdated: Date().addingTimeInterval(-3600), traffic: "500 MB")
-    ]
+    @Bindable private var profileManager = ProfileManager.shared
     
     var body: some View {
         VStack(spacing: 20) {
             SettingsHeader(title: "Profiles") {
                 Button(action: {
+                    Task {
+                        await profileManager.updateAllProfiles()
+                    }
                 }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white)
-                        .padding(8)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
+                    if case .downloading = profileManager.downloadStatus {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 16, height: 16)
+                            .padding(8)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white)
+                            .padding(8)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
                 }
                 .buttonStyle(.plain)
                 .help("Refresh All")
+                .disabled(profileManager.downloadStatus == .downloading)
             }
             .padding(.top, 30)
             .padding(.horizontal, 30)
@@ -56,29 +51,55 @@ struct ProfilesView: View {
                     }
                     
                     Button(action: {
-                        addNewProfile()
+                        Task {
+                            let success = await profileManager.downloadProfile(from: importURL)
+                            if success {
+                                importURL = ""
+                            }
+                        }
                     }) {
-                        Text("Download")
-                            .font(.system(size: 13, weight: .medium))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.blue)
-                            .foregroundStyle(.white)
-                            .cornerRadius(6)
+                        if case .downloading = profileManager.downloadStatus {
+                            ProgressView()
+                                .controlSize(.small)
+                                .frame(width: 60, height: 16)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue.opacity(0.5))
+                                .cornerRadius(6)
+                        } else {
+                            Text("Download")
+                                .font(.system(size: 13, weight: .medium))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue)
+                                .foregroundStyle(.white)
+                                .cornerRadius(6)
+                        }
                     }
                     .buttonStyle(.plain)
-                    .disabled(importURL.isEmpty)
+                    .disabled(importURL.isEmpty || profileManager.downloadStatus == .downloading)
                 }
             }
             .padding(.horizontal, 30)
             
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(profiles) { profile in
-                        ProfileRow(profile: profile, isSelected: selectedProfileId == profile.id)
-                            .onTapGesture {
-                                selectedProfileId = profile.id
+                    ForEach(profileManager.profiles) { profile in
+                        ProfileRow(
+                            profile: profile,
+                            isSelected: profileManager.selectedProfileId == profile.id,
+                            onUpdate: {
+                                Task {
+                                    await profileManager.updateProfile(profile)
+                                }
+                            },
+                            onDelete: {
+                                profileManager.deleteProfile(profile)
                             }
+                        )
+                        .onTapGesture {
+                            profileManager.selectProfile(profile)
+                        }
                     }
                 }
                 .padding(.horizontal, 30)
@@ -87,23 +108,26 @@ struct ProfilesView: View {
         }
     }
     
-    private func addNewProfile() {
-        guard !importURL.isEmpty else { return }
-        let newProfile = Profile(
-            name: "New Profile \(profiles.count + 1)",
-            type: .remote,
-            url: importURL,
-            lastUpdated: Date(),
-            traffic: "0 KB"
-        )
-        profiles.append(newProfile)
-        importURL = ""
+}
+
+extension ProfileDownloadStatus: Equatable {
+    static func == (lhs: ProfileDownloadStatus, rhs: ProfileDownloadStatus) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle), (.downloading, .downloading), (.success, .success):
+            return true
+        case (.failed(let a), .failed(let b)):
+            return a == b
+        default:
+            return false
+        }
     }
 }
 
 struct ProfileRow: View {
     let profile: Profile
     let isSelected: Bool
+    var onUpdate: () -> Void = {}
+    var onDelete: () -> Void = {}
     
     var body: some View {
         HStack(spacing: 16) {
@@ -155,28 +179,29 @@ struct ProfileRow: View {
             Spacer()
             
             HStack(spacing: 20) {
-                if let traffic = profile.traffic {
+                if profile.type == .remote {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(traffic)
+                        Text("Remote")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundStyle(.primary)
-                        Text("Usage")
+                            .foregroundStyle(.blue)
+                        Text("Subscription")
                             .font(.caption2)
                             .foregroundStyle(.gray)
                     }
                 }
                 
-                Button(action: {
-                }) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .foregroundStyle(.gray)
-                        .padding(8)
-                        .background(Color.white.opacity(0.05))
-                        .clipShape(Circle())
+                if profile.type == .remote {
+                    Button(action: onUpdate) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .foregroundStyle(.gray)
+                            .padding(8)
+                            .background(Color.white.opacity(0.05))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Update")
                 }
-                .buttonStyle(.plain)
-                .help("Update")
                 
                 Button(action: {
                 }) {
@@ -200,14 +225,16 @@ struct ProfileRow: View {
                 .stroke(isSelected ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)
         )
         .contextMenu {
-            Button(action: {}) {
-                Label("Update", systemImage: "arrow.triangle.2.circlepath")
+            if profile.type == .remote {
+                Button(action: onUpdate) {
+                    Label("Update", systemImage: "arrow.triangle.2.circlepath")
+                }
             }
             Button(action: {}) {
                 Label("Edit", systemImage: "pencil")
             }
             Divider()
-            Button(role: .destructive, action: {}) {
+            Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
         }
