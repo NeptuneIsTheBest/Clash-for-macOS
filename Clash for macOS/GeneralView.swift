@@ -4,6 +4,7 @@ struct GeneralView: View {
     @Bindable private var settings = AppSettings.shared
     private var coreManager = ClashCoreManager.shared
     private var proxyManager = SystemProxyManager.shared
+    private var helperManager = HelperManager.shared
     @State private var uploadSpeed: Int64 = 0
     @State private var downloadSpeed: Int64 = 0
     @State private var activeConnections: Int = 4
@@ -29,7 +30,8 @@ struct GeneralView: View {
                             title: "TUN Mode",
                             value: settings.tunMode ? "Enabled" : "Disabled",
                             icon: "shield.fill",
-                            color: settings.tunMode ? .blue : .gray
+                            color: settings.tunMode ? .blue : .gray,
+                            isDisabled: !helperManager.isHelperInstalled || !settings.serviceMode
                         ) {
                             settings.tunMode.toggle()
                         }
@@ -105,29 +107,35 @@ struct StatusCard: View {
     let value: String
     let icon: String
     let color: Color
+    var isDisabled: Bool = false
     let action: () -> Void
+    
+    private var displayColor: Color {
+        isDisabled ? .gray : color
+    }
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 28))
-                    .foregroundStyle(color)
+                    .foregroundStyle(displayColor)
                 
                 Text(title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
-                Text(value)
+                Text(isDisabled ? "Unavailable" : value)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(color)
+                    .foregroundStyle(displayColor)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(color.opacity(0.1))
+            .background(displayColor.opacity(0.1))
             .cornerRadius(10)
         }
         .buttonStyle(.plain)
+        .disabled(isDisabled)
     }
 }
 

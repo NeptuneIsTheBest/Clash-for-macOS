@@ -69,9 +69,19 @@ struct ClashSettingsView: View {
     @Bindable var settings: AppSettings
     @State private var showSecret = false
     private var proxyManager = SystemProxyManager.shared
+    private var helperManager = HelperManager.shared
     
     init(settings: AppSettings) {
         self.settings = settings
+    }
+    
+    private var tunModeSubtitle: String {
+        if !helperManager.isHelperInstalled {
+            return "Requires Service Mode to be installed"
+        } else if !settings.serviceMode {
+            return "Requires Service Mode to be enabled"
+        }
+        return "Enable TUN device for traffic"
     }
     
     var body: some View {
@@ -111,10 +121,14 @@ struct ClashSettingsView: View {
                 
                 Divider().background(Color.gray.opacity(0.3))
                 
-                SettingsRow(title: "TUN Mode", subtitle: "Enable TUN device for traffic") {
+                SettingsRow(
+                    title: "TUN Mode",
+                    subtitle: tunModeSubtitle
+                ) {
                     Toggle("", isOn: $settings.tunMode)
                         .toggleStyle(.switch)
                         .labelsHidden()
+                        .disabled(!helperManager.isHelperInstalled || !settings.serviceMode)
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
