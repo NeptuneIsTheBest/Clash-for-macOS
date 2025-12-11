@@ -421,10 +421,15 @@ class ClashAPI {
         let name: String
         let type: String
         let behavior: String
-        let path: String
+        let path: String?
         let count: Int
-        let interval: Int
+        let interval: Int?
         let updatedAt: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case name, type, behavior, path, interval, updatedAt
+            case count = "ruleCount"
+        }
     }
     
     func getRuleProviders() async throws -> [String: RuleProvider] {
