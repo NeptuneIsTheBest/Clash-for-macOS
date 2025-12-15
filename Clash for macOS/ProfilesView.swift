@@ -121,7 +121,7 @@ struct ProfilesView: View {
         }
         .fileImporter(
             isPresented: $showFileImporter,
-            allowedContentTypes: [.clashConfig],
+            allowedContentTypes: [.clashConfig, .yaml],
             allowsMultipleSelection: false
         ) { result in
             switch result {
