@@ -1,7 +1,9 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ProfilesView: View {
     @State private var importURL: String = ""
+    @State private var showFileImporter = false
     @Bindable private var profileManager = ProfileManager.shared
     
     var body: some View {
@@ -78,6 +80,17 @@ struct ProfilesView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(importURL.isEmpty || profileManager.downloadStatus == .downloading)
+                    
+                    Button(action: { showFileImporter = true }) {
+                        Image(systemName: "doc.badge.plus")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white)
+                            .padding(8)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Import from File")
                 }
             }
             .padding(.horizontal, 30)
@@ -104,6 +117,21 @@ struct ProfilesView: View {
                 }
                 .padding(.horizontal, 30)
                 .padding(.bottom, 30)
+            }
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.clashConfig],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                Task {
+                    await profileManager.importProfile(from: url)
+                }
+            case .failure(let error):
+                print("Import failed: \(error.localizedDescription)")
             }
         }
     }

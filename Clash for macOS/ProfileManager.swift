@@ -80,6 +80,49 @@ class ProfileManager {
     }
     
     @discardableResult
+    func importProfile(from url: URL) async -> Bool {
+        guard url.startAccessingSecurityScopedResource() else {
+            downloadStatus = .failed("Permission denied")
+            return false
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        
+        do {
+            let data = try Data(contentsOf: url)
+            let profileName = url.deletingPathExtension().lastPathComponent
+            let fileName = "\(UUID().uuidString).yaml"
+            let filePath = profilesDirectory.appendingPathComponent(fileName)
+            
+            try data.write(to: filePath)
+            
+            let profile = Profile(
+                name: profileName,
+                type: .local,
+                url: nil,
+                lastUpdated: Date(),
+                fileName: fileName
+            )
+            
+            await MainActor.run {
+                profiles.append(profile)
+                if selectedProfileId == nil {
+                    selectedProfileId = profile.id
+                }
+                saveProfiles()
+                downloadStatus = .success
+            }
+            
+            return true
+            
+        } catch {
+            await MainActor.run {
+                downloadStatus = .failed(error.localizedDescription)
+            }
+            return false
+        }
+    }
+
+    @discardableResult
     func downloadProfile(from urlString: String) async -> Bool {
         guard let url = URL(string: urlString) else {
             downloadStatus = .failed("Invalid URL")
