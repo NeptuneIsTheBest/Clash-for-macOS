@@ -156,7 +156,7 @@ class AppSettings {
         autoUpdateGeoIP = true
         
         externalController = "127.0.0.1:9090"
-        secret = ""
+        generateSecret()
         
         logLevel = .info
         bypassSystemProxy = true
