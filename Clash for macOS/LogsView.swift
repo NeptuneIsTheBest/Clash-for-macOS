@@ -63,7 +63,6 @@ class LogViewModel {
                         
                         logs.insert(entry, at: 0)
                         
-                        // Limit logs to avoid memory issues
                         if logs.count > 1000 {
                             logs.removeLast()
                         }
@@ -87,7 +86,6 @@ class LogViewModel {
     }
     
     private func parsePayload(_ payload: String) -> (String, String) {
-        // Try to extract [Type] from start of string
         if payload.hasPrefix("[") {
             if let endIndex = payload.firstIndex(of: "]") {
                 let typeStart = payload.index(after: payload.startIndex)

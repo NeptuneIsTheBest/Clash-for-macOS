@@ -134,7 +134,7 @@ class RuleProviderManager {
         updatingProviders.insert(name)
         do {
             try await ClashAPI.shared.updateRuleProvider(name: name)
-            // Refresh the list after update to get new updatedAt time
+
             try? await Task.sleep(for: .seconds(0.5))
             await fetchProviders()
         } catch {
@@ -244,7 +244,7 @@ struct RuleProviderCard: View {
     
     private func formatDate(_ dateString: String?) -> String {
         guard let dateString = dateString else { return "Never" }
-        // Clash usually returns ISO8601 strings
+
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let date = formatter.date(from: dateString) {

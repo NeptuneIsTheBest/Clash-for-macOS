@@ -59,16 +59,15 @@ class ConnectionsViewModel {
                     let uploadSpeedBytes = prev != nil ? Double(conn.upload - prev!.upload) / timeDelta : 0
                     let downloadSpeedBytes = prev != nil ? Double(conn.download - prev!.download) / timeDelta : 0
                     
-                    // Update cache
                     previousTraffic[conn.id] = (conn.upload, conn.download)
+
                     
                     let host = conn.metadata.host.isEmpty ? (conn.metadata.destinationIP ?? "Unknown") : conn.metadata.host
                     let destIP = conn.metadata.destinationIP ?? ""
                     let destPort = conn.metadata.destinationPort ?? ""
                     
-                    // Parse start time
-                    // Clash usually returns RFC3339 format, but we'll try a flexible approach or just use ISO8601
                     let formatter = ISO8601DateFormatter()
+
                     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                     let startDate = formatter.date(from: conn.start) ?? Date()
                     
@@ -91,8 +90,8 @@ class ConnectionsViewModel {
                     )
                 }.sorted(by: { $0.startTime > $1.startTime })
                 
-                // Cleanup old connections from cache
                 let currentIds = Set(response.connections.map { $0.id })
+
                 let oldIds = Set(previousTraffic.keys)
                 for id in oldIds.subtracting(currentIds) {
                     previousTraffic.removeValue(forKey: id)
@@ -108,8 +107,8 @@ class ConnectionsViewModel {
     func closeConnection(id: String) async {
         do {
             try await ClashAPI.shared.closeConnection(id: id)
-            // Remove locally to feel instant
             await MainActor.run {
+
                 if let index = connections.firstIndex(where: { $0.id == id }) {
                     connections.remove(at: index)
                 }

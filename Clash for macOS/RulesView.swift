@@ -98,7 +98,7 @@ struct RulesView: View {
         VStack(spacing: 0) {
             VStack {
                 SettingsHeader(title: "Rules", subtitle: "\(rulesManager.rules.count) rules loaded") {
-                    // Manual refresh removed
+                    
                 }
                 
                 HStack(spacing: 12) {
