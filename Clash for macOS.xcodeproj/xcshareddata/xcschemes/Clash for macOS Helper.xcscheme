@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A73505F92EE967F600F48C1A"
-               BuildableName = "Clash for macOS Helper"
+               BuildableName = "com.neptuneisthebest.Clash-for-macOS-Helper"
                BlueprintName = "Clash for macOS Helper"
                ReferencedContainer = "container:Clash for macOS.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A73505F92EE967F600F48C1A"
-            BuildableName = "Clash for macOS Helper"
+            BuildableName = "com.neptuneisthebest.Clash-for-macOS-Helper"
             BlueprintName = "Clash for macOS Helper"
             ReferencedContainer = "container:Clash for macOS.xcodeproj">
          </BuildableReference>
@@ -63,7 +63,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A73505F92EE967F600F48C1A"
-            BuildableName = "Clash for macOS Helper"
+            BuildableName = "com.neptuneisthebest.Clash-for-macOS-Helper"
             BlueprintName = "Clash for macOS Helper"
             ReferencedContainer = "container:Clash for macOS.xcodeproj">
          </BuildableReference>

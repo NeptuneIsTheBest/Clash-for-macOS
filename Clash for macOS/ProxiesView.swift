@@ -166,26 +166,6 @@ struct ProxiesView: View {
                     }
                     .background(Color(nsColor: .controlBackgroundColor))
                     .cornerRadius(6)
-                    
-                    Button(action: {
-                        Task {
-                            await viewModel.loadProxies()
-                        }
-                    }) {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .controlSize(.small)
-                                .frame(width: 16, height: 16)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .padding(6)
-                    .background(Color.white.opacity(0.1))
-                    .clipShape(Circle())
-                    .disabled(viewModel.isLoading)
                 }
             }
             .padding(.horizontal, 30)
@@ -245,6 +225,14 @@ struct ProxiesView: View {
         .task {
             await viewModel.loadMode()
             await viewModel.loadProxies()
+        }
+        .onChange(of: ClashCoreManager.shared.isRunning) { _, isRunning in
+            if isRunning {
+                Task {
+                    await viewModel.loadMode()
+                    await viewModel.loadProxies()
+                }
+            }
         }
     }
 }

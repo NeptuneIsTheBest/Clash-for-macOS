@@ -98,16 +98,7 @@ struct RulesView: View {
         VStack(spacing: 0) {
             VStack {
                 SettingsHeader(title: "Rules", subtitle: "\(rulesManager.rules.count) rules loaded") {
-                    HStack(spacing: 10) {
-                        Button(action: {
-                            Task { await rulesManager.fetchRules() }
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(rulesManager.isLoading)
-                    }
+                    // Manual refresh removed
                 }
                 
                 HStack(spacing: 12) {
@@ -179,6 +170,11 @@ struct RulesView: View {
         .task {
             if rulesManager.rules.isEmpty {
                 await rulesManager.fetchRules()
+            }
+        }
+        .onChange(of: ClashCoreManager.shared.isRunning) { _, isRunning in
+            if isRunning {
+                Task { await rulesManager.fetchRules() }
             }
         }
     }

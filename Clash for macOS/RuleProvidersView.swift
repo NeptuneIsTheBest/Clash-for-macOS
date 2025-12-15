@@ -20,15 +20,7 @@ struct RuleProvidersView: View {
             VStack {
                 SettingsHeader(title: "Rule Providers", subtitle: "\(manager.providers.count) providers loaded") {
                     HStack(spacing: 10) {
-                        Button(action: {
-                            Task { await manager.fetchProviders() }
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(manager.isLoading)
-                        .help("Refresh List")
+                        
                         
                         Button(action: {
                             Task { await manager.updateAllProviders() }
@@ -103,6 +95,11 @@ struct RuleProvidersView: View {
         .task {
             if manager.providers.isEmpty {
                 await manager.fetchProviders()
+            }
+        }
+        .onChange(of: ClashCoreManager.shared.isRunning) { _, isRunning in
+            if isRunning {
+                Task { await manager.fetchProviders() }
             }
         }
     }
