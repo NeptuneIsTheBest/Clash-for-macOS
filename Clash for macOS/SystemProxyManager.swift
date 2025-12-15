@@ -76,7 +76,7 @@ class SystemProxyManager {
                 return
             }
             
-            var lastError: String?
+            let lastError: String?
             
             for service in services {
                 if enable {

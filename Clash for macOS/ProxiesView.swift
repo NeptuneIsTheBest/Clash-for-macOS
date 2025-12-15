@@ -76,7 +76,7 @@ class ProxiesViewModel {
     }
     
     func testDelay(proxyName: String) async {
-        await MainActor.run {
+        _ = await MainActor.run {
             testingProxies.insert(proxyName)
         }
         

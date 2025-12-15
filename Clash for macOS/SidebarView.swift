@@ -30,6 +30,10 @@ struct SidebarView: View {
     @Binding var selection: NavigationItem
     @Bindable private var settings = AppSettings.shared
     
+    @State private var uploadSpeed: Int64 = 0
+    @State private var downloadSpeed: Int64 = 0
+    @State private var trafficTask: Task<Void, Never>?
+    
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -78,7 +82,7 @@ struct SidebarView: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .foregroundStyle(.green)
                         .font(.system(size: 12))
-                    Text(formatSpeed(0))
+                    Text(formatSpeed(uploadSpeed))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.primary)
                     Spacer()
@@ -87,7 +91,7 @@ struct SidebarView: View {
                     Image(systemName: "arrow.down.circle.fill")
                         .foregroundStyle(.blue)
                         .font(.system(size: 12))
-                    Text(formatSpeed(0))
+                    Text(formatSpeed(downloadSpeed))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.primary)
                     Spacer()
@@ -98,10 +102,38 @@ struct SidebarView: View {
             .cornerRadius(8)
             .padding(.horizontal, 8)
             .padding(.bottom, 12)
+            .onAppear {
+                startMonitoring()
+            }
+            .onDisappear {
+                stopMonitoring()
+            }
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .frame(minWidth: 200, maxWidth: 200)
     }
+    
+    private func startMonitoring() {
+        trafficTask = Task {
+            do {
+                let stream = ClashAPI.shared.getTrafficStream()
+                for try await traffic in stream {
+                    await MainActor.run {
+                        uploadSpeed = traffic.up
+                        downloadSpeed = traffic.down
+                    }
+                }
+            } catch {
+            }
+        }
+    }
+    
+    private func stopMonitoring() {
+        trafficTask?.cancel()
+        trafficTask = nil
+    }
+    
+
 }
 
 #Preview {

@@ -7,7 +7,11 @@ struct GeneralView: View {
     private var helperManager = HelperManager.shared
     @State private var uploadSpeed: Int64 = 0
     @State private var downloadSpeed: Int64 = 0
-    @State private var activeConnections: Int = 4
+    @State private var memoryUsage: Int64 = 0
+    @State private var activeConnections: Int = 0
+    @State private var trafficTask: Task<Void, Never>?
+    @State private var memoryTask: Task<Void, Never>?
+    @State private var connectionTimer: Timer?
     
     var body: some View {
         ScrollView {
@@ -69,6 +73,13 @@ struct GeneralView: View {
                             icon: "link",
                             color: .purple
                         )
+                        
+                        TrafficCard(
+                            title: "Memory",
+                            speed: ByteUtils.format(memoryUsage),
+                            icon: "memorychip.fill",
+                            color: .orange
+                        )
                     }
                 }
                 
@@ -92,6 +103,12 @@ struct GeneralView: View {
             }
             .padding(30)
         }
+        .onAppear {
+            startMonitoring()
+        }
+        .onDisappear {
+            stopMonitoring()
+        }
     }
     
     private var coreVersionText: String {
@@ -99,6 +116,59 @@ struct GeneralView: View {
             return "\(coreManager.currentCoreType.displayName) \(version)"
         }
         return "Not Installed"
+    }
+    
+    private func startMonitoring() {
+        trafficTask = Task {
+            do {
+                let stream = ClashAPI.shared.getTrafficStream()
+                for try await traffic in stream {
+                    await MainActor.run {
+                        uploadSpeed = traffic.up
+                        downloadSpeed = traffic.down
+                    }
+                }
+            } catch {
+            }
+        }
+        
+        memoryTask = Task {
+            do {
+                let stream = ClashAPI.shared.getMemoryStream()
+                for try await memory in stream {
+                    await MainActor.run {
+                        memoryUsage = memory.inuse
+                    }
+                }
+            } catch {
+            }
+        }
+        
+        connectionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            Task {
+                await fetchConnections()
+            }
+        }
+        Task { await fetchConnections() }
+    }
+    
+    private func stopMonitoring() {
+        trafficTask?.cancel()
+        trafficTask = nil
+        memoryTask?.cancel()
+        memoryTask = nil
+        connectionTimer?.invalidate()
+        connectionTimer = nil
+    }
+    
+    private func fetchConnections() async {
+        do {
+            let response = try await ClashAPI.shared.getConnections()
+            await MainActor.run {
+                activeConnections = response.connections.count
+            }
+        } catch {
+        }
     }
 }
 
