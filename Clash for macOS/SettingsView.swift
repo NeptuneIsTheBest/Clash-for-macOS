@@ -84,6 +84,18 @@ struct ClashSettingsView: View {
         return "Enable TUN device for traffic"
     }
     
+    private func restartCoreIfRunning() {
+        if let selectedId = ProfileManager.shared.selectedProfileId,
+           let profile = ProfileManager.shared.profiles.first(where: { $0.id == selectedId }) {
+            ProfileManager.shared.applyProfile(profile)
+        } else {
+            try? FileManager.default.removeItem(at: ClashCoreManager.shared.configPath)
+            if ClashCoreManager.shared.isRunning {
+                ClashCoreManager.shared.restartCore()
+            }
+        }
+    }
+    
     var body: some View {
         SettingsSection(title: "Clash", icon: "network") {
             VStack(spacing: 16) {
@@ -125,10 +137,84 @@ struct ClashSettingsView: View {
                     title: "TUN Mode",
                     subtitle: tunModeSubtitle
                 ) {
-                    Toggle("", isOn: $settings.tunMode)
+                    Toggle("", isOn: Binding(
+                        get: { settings.tunMode },
+                        set: { newValue in
+                            settings.tunMode = newValue
+                            if let selectedId = ProfileManager.shared.selectedProfileId,
+                               let profile = ProfileManager.shared.profiles.first(where: { $0.id == selectedId }) {
+                                ProfileManager.shared.applyProfile(profile)
+                            } else {
+                                try? FileManager.default.removeItem(at: ClashCoreManager.shared.configPath)
+                                if ClashCoreManager.shared.isRunning {
+                                    ClashCoreManager.shared.restartCore()
+                                }
+                            }
+                        }
+                    ))
                         .toggleStyle(.switch)
                         .labelsHidden()
                         .disabled(!helperManager.isHelperInstalled || !settings.serviceMode)
+                }
+                
+                if settings.tunMode {
+                    Group {
+                        SettingsRow(title: "  Stack", subtitle: "TUN interface stack") {
+                            Picker("", selection: Binding(
+                                get: { settings.tunStack },
+                                set: { newValue in
+                                    settings.tunStack = newValue
+                                    restartCoreIfRunning()
+                                }
+                            )) {
+                                ForEach(TunStackMode.allCases, id: \.self) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(width: 100)
+                        }
+                        
+                        SettingsRow(title: "  DNS Hijack", subtitle: "DNS hijack rules") {
+                            TextField("", text: Binding(
+                                get: { settings.tunDnsHijack },
+                                set: { newValue in
+                                    settings.tunDnsHijack = newValue
+                                    restartCoreIfRunning()
+                                }
+                            ))
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 12, design: .monospaced))
+                                .padding(8)
+                                .background(Color(nsColor: .textBackgroundColor))
+                                .cornerRadius(6)
+                                .frame(width: 160)
+                        }
+                        
+                        SettingsRow(title: "  Auto Route", subtitle: "Add default route") {
+                            Toggle("", isOn: Binding(
+                                get: { settings.tunAutoRoute },
+                                set: { newValue in
+                                    settings.tunAutoRoute = newValue
+                                    restartCoreIfRunning()
+                                }
+                            ))
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
+                        
+                        SettingsRow(title: "  Auto Detect Interface", subtitle: "Auto detect interface") {
+                            Toggle("", isOn: Binding(
+                                get: { settings.tunAutoDetectInterface },
+                                set: { newValue in
+                                    settings.tunAutoDetectInterface = newValue
+                                    restartCoreIfRunning()
+                                }
+                            ))
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                        }
+                    }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))

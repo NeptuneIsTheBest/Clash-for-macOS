@@ -255,6 +255,19 @@ class ProfileManager {
             insertLines.append("\(setting.key): \(setting.value)")
         }
         
+        if settings.tunMode {
+            let tunConfig = """
+            tun:
+              enable: true
+              stack: \(settings.tunStack.configValue)
+              dns-hijack:
+                - \(settings.tunDnsHijack)
+              auto-route: \(settings.tunAutoRoute)
+              auto-detect-interface: \(settings.tunAutoDetectInterface)
+            """
+            insertLines.append(tunConfig)
+        }
+        
         if !insertLines.isEmpty {
             var insertIndex = 0
             for (index, line) in lines.enumerated() {

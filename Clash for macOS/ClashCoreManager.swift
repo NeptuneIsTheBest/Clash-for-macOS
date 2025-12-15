@@ -367,7 +367,7 @@ class ClashCoreManager {
         guard !fileManager.fileExists(atPath: configPath.path) else { return }
         
         let settings = AppSettings.shared
-        let defaultConfig = """
+        var defaultConfig = """
 mixed-port: \(settings.mixedPort)
 port: \(settings.httpPort)
 socks-port: \(settings.socksPort)
@@ -377,6 +377,20 @@ external-controller: \(settings.externalController)
 secret: \(settings.secret)
 ipv6: \(settings.ipv6)
 """
+        
+        if settings.tunMode {
+            defaultConfig += """
+
+tun:
+  enable: true
+  stack: \(settings.tunStack.configValue)
+  dns-hijack:
+    - \(settings.tunDnsHijack)
+  auto-route: \(settings.tunAutoRoute)
+  auto-detect-interface: \(settings.tunAutoDetectInterface)
+"""
+        }
+        
         try? defaultConfig.write(to: configPath, atomically: true, encoding: .utf8)
     }
 }

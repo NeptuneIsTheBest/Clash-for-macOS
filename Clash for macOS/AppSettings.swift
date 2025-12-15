@@ -9,6 +9,10 @@ class AppSettings {
     var systemProxy = false { didSet { saveSettings() } }
     var startAtLogin = false { didSet { saveSettings() } }
     var tunMode = false { didSet { saveSettings() } }
+    var tunStack: TunStackMode = .system { didSet { saveSettings() } }
+    var tunDnsHijack = "any:53" { didSet { saveSettings() } }
+    var tunAutoRoute = true { didSet { saveSettings() } }
+    var tunAutoDetectInterface = true { didSet { saveSettings() } }
     var silentStart = false { didSet { saveSettings() } }
     var allowLAN = false { didSet { saveSettings() } }
     var ipv6 = false { didSet { saveSettings() } }
@@ -54,6 +58,14 @@ class AppSettings {
         systemProxy = defaults.bool(forKey: "systemProxy")
         startAtLogin = defaults.bool(forKey: "startAtLogin")
         tunMode = defaults.bool(forKey: "tunMode")
+        if let tunStackRaw = defaults.string(forKey: "tunStack"),
+           let stack = TunStackMode(rawValue: tunStackRaw) {
+            tunStack = stack
+        }
+        tunDnsHijack = defaults.string(forKey: "tunDnsHijack") ?? "any:53"
+        tunAutoRoute = defaults.object(forKey: "tunAutoRoute") as? Bool ?? true
+        tunAutoDetectInterface = defaults.object(forKey: "tunAutoDetectInterface") as? Bool ?? true
+        
         silentStart = defaults.bool(forKey: "silentStart")
         allowLAN = defaults.object(forKey: "allowLAN") as? Bool ?? false
         ipv6 = defaults.bool(forKey: "ipv6")
@@ -91,6 +103,11 @@ class AppSettings {
         defaults.set(systemProxy, forKey: "systemProxy")
         defaults.set(startAtLogin, forKey: "startAtLogin")
         defaults.set(tunMode, forKey: "tunMode")
+        defaults.set(tunStack.rawValue, forKey: "tunStack")
+        defaults.set(tunDnsHijack, forKey: "tunDnsHijack")
+        defaults.set(tunAutoRoute, forKey: "tunAutoRoute")
+        defaults.set(tunAutoDetectInterface, forKey: "tunAutoDetectInterface")
+        
         defaults.set(silentStart, forKey: "silentStart")
         defaults.set(allowLAN, forKey: "allowLAN")
         defaults.set(ipv6, forKey: "ipv6")
@@ -120,6 +137,11 @@ class AppSettings {
         systemProxy = false
         startAtLogin = false
         tunMode = false
+        tunStack = .system
+        tunDnsHijack = "any:53"
+        tunAutoRoute = true
+        tunAutoDetectInterface = true
+        
         silentStart = false
         allowLAN = false
         ipv6 = false
