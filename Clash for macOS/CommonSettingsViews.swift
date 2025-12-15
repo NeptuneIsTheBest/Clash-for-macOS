@@ -34,6 +34,9 @@ enum DateFormatters {
 }
 
 func formatSpeed(_ bytesPerSecond: Int64) -> String {
+    if bytesPerSecond == 0 {
+        return "0 B/s"
+    }
     let kb = Double(bytesPerSecond) / 1024
     let mb = kb / 1024
     let gb = mb / 1024

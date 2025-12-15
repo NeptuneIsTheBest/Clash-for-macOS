@@ -132,6 +132,9 @@ class ConnectionsViewModel {
 
 struct ByteUtils {
     static func format(_ bytes: Int64) -> String {
+        if bytes == 0 {
+            return "0 B"
+        }
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useAll]
         formatter.countStyle = .memory
