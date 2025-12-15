@@ -343,6 +343,19 @@ class ClashAPI {
         let downloadTotal: Int64
         let uploadTotal: Int64
         let connections: [Connection]
+        
+        enum CodingKeys: String, CodingKey {
+            case downloadTotal
+            case uploadTotal
+            case connections
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.downloadTotal = try container.decode(Int64.self, forKey: .downloadTotal)
+            self.uploadTotal = try container.decode(Int64.self, forKey: .uploadTotal)
+            self.connections = try container.decodeIfPresent([Connection].self, forKey: .connections) ?? []
+        }
     }
     
     struct Connection: Codable {

@@ -168,9 +168,13 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
         processLock.lock()
         
         if let existingProcess = clashProcess, existingProcess.isRunning {
-            existingProcess.terminate()
-            existingProcess.waitUntilExit()
+            let pid = existingProcess.processIdentifier
+            processLock.unlock()
+            reply(true, pid, nil)
+            return
         }
+        
+        // Clean up dead process reference if any
         clashProcess = nil
         clashProcessPID = 0
         
