@@ -1,15 +1,17 @@
 import AppKit
 import SwiftUI
+import Combine
 
-class StatusBarManager: NSObject {
+class StatusBarManager: NSObject, ObservableObject {
     static let shared = StatusBarManager()
     
     private var statusItem: NSStatusItem?
     private var trafficTask: Task<Void, Never>?
     private var proxiesTask: Task<Void, Never>?
     
-    private var uploadSpeed: Int64 = 0
-    private var downloadSpeed: Int64 = 0
+    @Published var uploadSpeed: Int64 = 0
+    @Published var downloadSpeed: Int64 = 0
+    @Published var showSpeed: Bool = AppSettings.shared.showSpeedInStatusBar
     
     private var proxyMode: String = "rule"
     private var proxyGroups: [ProxyGroupInfo] = []
@@ -46,7 +48,7 @@ class StatusBarManager: NSObject {
                 if self.statusItem == nil {
                     self.createStatusItem()
                 }
-                self.updateSpeedDisplay()
+                self.showSpeed = AppSettings.shared.showSpeedInStatusBar
             } else {
                 self.removeStatusItem()
             }
@@ -57,7 +59,16 @@ class StatusBarManager: NSObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            updateButtonTitle(button)
+            let view = NSHostingView(rootView: StatusBarView(manager: self))
+            view.translatesAutoresizingMaskIntoConstraints = false
+            button.addSubview(view)
+            
+            NSLayoutConstraint.activate([
+                view.topAnchor.constraint(equalTo: button.topAnchor),
+                view.bottomAnchor.constraint(equalTo: button.bottomAnchor),
+                view.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: button.trailingAnchor)
+            ])
         }
         
         updateMenu()
@@ -73,56 +84,38 @@ class StatusBarManager: NSObject {
         }
     }
     
-    private func createStatusIcon() -> NSImage? {
-        let image = NSImage(systemSymbolName: "network", accessibilityDescription: "Clash")
-        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
-        return image?.withSymbolConfiguration(config)
-    }
-
-    private func updateButtonTitle(_ button: NSStatusBarButton) {
-        let settings = AppSettings.shared
-        
-        // Always set the icon
-        button.image = createStatusIcon()
-        button.image?.isTemplate = true
-        
-        if settings.showSpeedInStatusBar && (uploadSpeed > 0 || downloadSpeed > 0) {
-            let upStr = formatSpeedShort(uploadSpeed)
-            let downStr = formatSpeedShort(downloadSpeed)
-            
-            // Set font for better readability
-            let font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-            let attributes: [NSAttributedString.Key: Any] = [.font: font]
-            let title = NSAttributedString(string: " ↑\(upStr) ↓\(downStr)", attributes: attributes)
-            
-            button.attributedTitle = title
-            button.imagePosition = .imageLeft
-        } else {
-            button.title = ""
-            button.imagePosition = .imageOnly
-        }
+    private var statusBarHeight: CGFloat {
+        NSStatusBar.system.thickness
     }
     
-    private func formatSpeedShort(_ bytesPerSecond: Int64) -> String {
-        if bytesPerSecond == 0 {
-            return "0B"
-        }
+    var iconSize: CGFloat {
+        max(12, statusBarHeight * 0.7)
+    }
+    
+    var fontSize: CGFloat {
+        max(7, statusBarHeight * 0.4)
+    }
+    
+
+    
+    func formatSpeedShort(_ bytesPerSecond: Int64) -> String {
         let kb = Double(bytesPerSecond) / 1024
         let mb = kb / 1024
         
-        if mb >= 1 {
-            return String(format: "%.1fM", mb)
+        if mb >= 10 {
+            return String(format: "%4.0fM", mb)
+        } else if mb >= 1 {
+            return String(format: "%4.1fM", mb)
+        } else if kb >= 10 {
+            return String(format: "%4.0fK", kb)
         } else if kb >= 1 {
-            return String(format: "%.0fK", kb)
+            return String(format: "%4.1fK", kb)
         } else {
-            return "\(bytesPerSecond)B"
+            return String(format: "%4dB", bytesPerSecond)
         }
     }
     
-    private func updateSpeedDisplay() {
-        guard let button = statusItem?.button else { return }
-        updateButtonTitle(button)
-    }
+
     
     private func startTrafficMonitoring() {
         trafficTask = Task { [weak self] in
@@ -132,7 +125,6 @@ class StatusBarManager: NSObject {
                     await MainActor.run {
                         self?.uploadSpeed = traffic.up
                         self?.downloadSpeed = traffic.down
-                        self?.updateSpeedDisplay()
                     }
                 }
             } catch {
@@ -323,5 +315,27 @@ class StatusBarManager: NSObject {
     @objc private func quitApp() {
         ClashCoreManager.shared.stopCore()
         NSApplication.shared.terminate(nil)
+    }
+}
+
+struct StatusBarView: View {
+    @ObservedObject var manager: StatusBarManager
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "network")
+                .font(.system(size: manager.iconSize, weight: .medium))
+            
+            if manager.showSpeed {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("↑ \(manager.formatSpeedShort(manager.uploadSpeed))")
+                    Text("↓ \(manager.formatSpeedShort(manager.downloadSpeed))")
+                }
+                .font(.system(size: manager.fontSize, weight: .regular, design: .monospaced))
+            }
+        }
+        .padding(.horizontal, 4)
+        .fixedSize()
+        .allowsHitTesting(false)
     }
 }
