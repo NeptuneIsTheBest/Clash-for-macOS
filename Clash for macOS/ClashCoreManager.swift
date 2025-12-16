@@ -50,6 +50,13 @@ class ClashCoreManager {
     private var installedVersions: [ClashCoreType: String] = [:]
     private var coreProcess: Process?
     
+    private var healthCheckTimer: Timer?
+    private let healthCheckInterval: TimeInterval = 5.0
+    private(set) var autoRestartEnabled = true
+    private var restartAttempts = 0
+    private let maxRestartAttempts = 3
+    private var isManualStop = false
+    
     var latestVersion: String = ""
     var isDownloading = false
     var downloadProgress: Double = 0
@@ -269,6 +276,7 @@ class ClashCoreManager {
         guard !isRunning else { return }
         guard fileManager.fileExists(atPath: corePath.path) else { return }
         
+        isManualStop = false
         ensureDefaultConfig()
         
         if useServiceMode {
@@ -287,6 +295,8 @@ class ClashCoreManager {
             if success {
                 self?.isRunning = true
                 self?.coreProcess = nil
+                self?.restartAttempts = 0
+                self?.startHealthMonitoring()
             } else {
                 print("Failed to start core via helper: \(error ?? "Unknown error")")
                 self?.isRunning = false
@@ -304,10 +314,13 @@ class ClashCoreManager {
         process.standardOutput = pipe
         process.standardError = pipe
         
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] terminatedProcess in
             DispatchQueue.main.async {
-                self?.isRunning = false
-                self?.coreProcess = nil
+                guard let self = self else { return }
+                if self.coreProcess === terminatedProcess {
+                    self.isRunning = false
+                    self.coreProcess = nil
+                }
             }
         }
         
@@ -315,6 +328,8 @@ class ClashCoreManager {
             try process.run()
             coreProcess = process
             isRunning = true
+            restartAttempts = 0
+            startHealthMonitoring()
         } catch {
             print("Failed to start core: \(error)")
             isRunning = false
@@ -322,6 +337,9 @@ class ClashCoreManager {
     }
     
     func stopCore() {
+        isManualStop = true
+        stopHealthMonitoring()
+        
         guard isRunning else { return }
         
         if useServiceMode {
@@ -349,9 +367,27 @@ class ClashCoreManager {
     }
     
     func restartCore() {
-        stopCore()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.startCore()
+        isManualStop = false
+        stopHealthMonitoring()
+        
+        let wasUsingServiceMode = useServiceMode
+        
+        if useServiceMode {
+            HelperManager.shared.stopClashCore { [weak self] _, _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self?.isRunning = false
+                    self?.startCore()
+                }
+            }
+        } else {
+            if let process = coreProcess {
+                process.terminate()
+                coreProcess = nil
+            }
+            isRunning = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.startCore()
+            }
         }
     }
     
@@ -378,11 +414,75 @@ class ClashCoreManager {
     }
     
     func checkRunningStatus() {
-        if HelperManager.shared.isHelperInstalled {
+        if useServiceMode {
             HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
-                self?.isRunning = running
+                DispatchQueue.main.async {
+                    self?.isRunning = running
+                }
+            }
+        } else {
+            isRunning = coreProcess?.isRunning ?? false
+        }
+    }
+    
+    private func startHealthMonitoring() {
+        stopHealthMonitoring()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.healthCheckTimer = Timer.scheduledTimer(withTimeInterval: self.healthCheckInterval, repeats: true) { [weak self] _ in
+                self?.performHealthCheck()
             }
         }
+    }
+    
+    private func stopHealthMonitoring() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = nil
+    }
+    
+    private func performHealthCheck() {
+        if useServiceMode {
+            HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
+                DispatchQueue.main.async {
+                    self?.handleHealthCheckResult(isRunning: running)
+                }
+            }
+        } else {
+            let running = coreProcess?.isRunning ?? false
+            handleHealthCheckResult(isRunning: running)
+        }
+    }
+    
+    private func handleHealthCheckResult(isRunning: Bool) {
+        let wasRunning = self.isRunning
+        self.isRunning = isRunning
+        
+        if wasRunning && !isRunning && autoRestartEnabled && !isManualStop {
+            attemptAutoRestart()
+        }
+    }
+    
+    private func attemptAutoRestart() {
+        guard restartAttempts < maxRestartAttempts else {
+            print("Max restart attempts reached (\(maxRestartAttempts)), stopping auto-restart")
+            restartAttempts = 0
+            return
+        }
+        
+        restartAttempts += 1
+        print("Attempting auto-restart (\(restartAttempts)/\(maxRestartAttempts))")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.startCore()
+        }
+    }
+    
+    func setAutoRestart(_ enabled: Bool) {
+        autoRestartEnabled = enabled
+    }
+    
+    func resetRestartAttempts() {
+        restartAttempts = 0
     }
     
     private func ensureDefaultConfig() {
@@ -416,3 +516,4 @@ tun:
         try? defaultConfig.write(to: configPath, atomically: true, encoding: .utf8)
     }
 }
+
