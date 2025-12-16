@@ -347,10 +347,35 @@ struct ClashSettingsView: View {
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
+                
+                Divider().background(Color.gray.opacity(0.3))
+                
+                SettingsRow(title: "GeoIP URL", subtitle: "Country.mmdb download source") {
+                    TextField("", text: $settings.geoIPUrl)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding(8)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .cornerRadius(6)
+                        .frame(width: 300)
+                }
+                
+                Divider().background(Color.gray.opacity(0.3))
+                
+                SettingsRow(title: "GeoSite URL", subtitle: "geosite.dat download source") {
+                    TextField("", text: $settings.geoSiteUrl)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding(8)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .cornerRadius(6)
+                        .frame(width: 300)
+                }
             }
         }
     }
 }
+
 
 struct AppearanceSettingsView: View {
     @Bindable var settings: AppSettings
@@ -400,6 +425,7 @@ struct AdvancedSettingsView: View {
 
 struct ActionsSettingsView: View {
     @Bindable var settings: AppSettings
+    var geoManager = GeoIPManager.shared
     
     var body: some View {
         SettingsSection(title: "Actions", icon: "bolt.fill") {
@@ -409,11 +435,16 @@ struct ActionsSettingsView: View {
                         ClashCoreManager.shared.reloadConfigViaAPI()
                     }
                     
-                    ActionButton(title: "Update GeoIP", icon: "globe", color: .green) {
+                    ActionButton(
+                        title: geoManager.isDownloading ? "Downloading..." : "Update GeoIP",
+                        icon: geoManager.isDownloading ? "arrow.down.circle" : "globe",
+                        color: geoManager.isDownloading ? .gray : .green
+                    ) {
                         Task {
-                            try? await ClashAPI.shared.updateGeoDatabases()
+                            await geoManager.downloadAll()
                         }
                     }
+                    .disabled(geoManager.isDownloading)
                     
                     ActionButton(title: "Flush DNS", icon: "network.badge.shield.half.filled", color: .orange) {
                         Task {
@@ -425,10 +456,51 @@ struct ActionsSettingsView: View {
                         settings.resetToDefaults()
                     }
                 }
+                
+                HStack(spacing: 20) {
+                    HStack(spacing: 6) {
+                        Text("GeoIP:")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Text(geoManager.geoIPLastUpdateText)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(geoIPStatusColor)
+                    }
+                    
+                    HStack(spacing: 6) {
+                        Text("GeoSite:")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Text(geoManager.geoSiteLastUpdateText)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(geoSiteStatusColor)
+                    }
+                    
+                    Spacer()
+                }
             }
         }
     }
+    
+    private var geoIPStatusColor: Color {
+        switch geoManager.geoIPStatus {
+        case .notDownloaded: return .orange
+        case .downloaded: return .green
+        case .downloading: return .blue
+        case .error: return .red
+        }
+    }
+    
+    private var geoSiteStatusColor: Color {
+        switch geoManager.geoSiteStatus {
+        case .notDownloaded: return .orange
+        case .downloaded: return .green
+        case .downloading: return .blue
+        case .error: return .red
+        }
+    }
 }
+
 
 struct CoreManagementView: View {
     private var coreManager = ClashCoreManager.shared
@@ -785,7 +857,8 @@ struct ServiceModeSettingsView: View {
 }
 
 struct AboutSettingsView: View {
-    private var coreManager = ClashCoreManager.shared
+    var coreManager = ClashCoreManager.shared
+    var geoManager = GeoIPManager.shared
     
     var body: some View {
         SettingsSection(title: "About", icon: "info.circle.fill") {
@@ -815,9 +888,10 @@ struct AboutSettingsView: View {
                     Text("GeoIP Database")
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text("20230912")
+                    Text(geoManager.geoIPLastUpdateText)
                         .foregroundStyle(.secondary)
                 }
+
                 
                 Divider().background(Color.gray.opacity(0.3))
                 

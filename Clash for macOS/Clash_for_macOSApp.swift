@@ -6,12 +6,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if case .installed = manager.coreStatus {
             manager.startCore()
         }
+        
+        Task {
+            await GeoIPManager.shared.updateIfNeeded()
+        }
     }
     
     func applicationWillTerminate(_ notification: Notification) {
         ClashCoreManager.shared.stopCore()
     }
 }
+
 
 @main
 struct Clash_for_macOSApp: App {

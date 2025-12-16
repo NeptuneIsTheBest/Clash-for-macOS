@@ -5,6 +5,7 @@ struct GeneralView: View {
     private var coreManager = ClashCoreManager.shared
     private var proxyManager = SystemProxyManager.shared
     private var helperManager = HelperManager.shared
+    private var geoIPManager = GeoIPManager.shared
     @State private var uploadSpeed: Int64 = 0
     @State private var downloadSpeed: Int64 = 0
     @State private var memoryUsage: Int64 = 0
@@ -95,7 +96,7 @@ struct GeneralView: View {
                         Divider().background(Color.gray.opacity(0.3))
                         InfoRow(label: "Clash Core", value: coreVersionText)
                         Divider().background(Color.gray.opacity(0.3))
-                        InfoRow(label: "GeoIP Database", value: "20230912")
+                        InfoRow(label: "GeoIP Database", value: geoIPManager.geoIPLastUpdateText)
                     }
                 }
                 
