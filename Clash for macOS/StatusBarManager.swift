@@ -2,6 +2,31 @@ import AppKit
 import SwiftUI
 import Combine
 
+class LayoutSafeHostingView<Content: View>: NSView {
+    private var hostingView: NSHostingView<Content>
+    
+    init(rootView: Content) {
+        hostingView = NSHostingView(rootView: rootView)
+        super.init(frame: .zero)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.topAnchor.constraint(equalTo: topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            hostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layout() {
+        super.layout()
+    }
+}
+
 class StatusBarManager: NSObject, ObservableObject {
     static let shared = StatusBarManager()
     
@@ -59,7 +84,7 @@ class StatusBarManager: NSObject, ObservableObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            let view = NSHostingView(rootView: StatusBarView(manager: self))
+            let view = LayoutSafeHostingView(rootView: StatusBarView(manager: self))
             view.translatesAutoresizingMaskIntoConstraints = false
             button.addSubview(view)
             
