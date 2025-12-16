@@ -169,7 +169,7 @@ struct ClashSettingsView: View {
                         }
                         
                         SettingsRow(title: "  DNS Hijack", subtitle: "DNS hijack rules") {
-                            TextField("", text: Binding(
+                            TextField("any:53", text: Binding(
                                 get: { settings.tunDnsHijack },
                                 set: { newValue in
                                     settings.tunDnsHijack = newValue
@@ -182,6 +182,11 @@ struct ClashSettingsView: View {
                                 .background(Color(nsColor: .textBackgroundColor))
                                 .cornerRadius(6)
                                 .frame(width: 160)
+                                .onSubmit {
+                                    if settings.tunDnsHijack.isEmpty {
+                                        settings.tunDnsHijack = "any:53"
+                                    }
+                                }
                         }
                         
                         SettingsRow(title: "  Auto Route", subtitle: "Add default route") {
@@ -241,7 +246,7 @@ struct ClashSettingsView: View {
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "Mixed Port", subtitle: "HTTP/SOCKS5 mixed proxy port") {
-                    TextField("", text: $settings.mixedPort)
+                    TextField("7890", text: $settings.mixedPort)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14, design: .monospaced))
                         .padding(8)
@@ -257,13 +262,18 @@ struct ClashSettingsView: View {
                                 settings.mixedPort = oldValue
                             }
                         }
-                        .onSubmit { reloadConfigIfRunning() }
+                        .onSubmit {
+                            if settings.mixedPort.isEmpty {
+                                settings.mixedPort = "7890"
+                            }
+                            reloadConfigIfRunning()
+                        }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "HTTP Port", subtitle: "HTTP proxy port") {
-                    TextField("", text: $settings.httpPort)
+                    TextField("7890", text: $settings.httpPort)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14, design: .monospaced))
                         .padding(8)
@@ -279,13 +289,18 @@ struct ClashSettingsView: View {
                                 settings.httpPort = oldValue
                             }
                         }
-                        .onSubmit { reloadConfigIfRunning() }
+                        .onSubmit {
+                            if settings.httpPort.isEmpty {
+                                settings.httpPort = "7890"
+                            }
+                            reloadConfigIfRunning()
+                        }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "SOCKS5 Port", subtitle: "SOCKS5 proxy port") {
-                    TextField("", text: $settings.socksPort)
+                    TextField("7891", text: $settings.socksPort)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14, design: .monospaced))
                         .padding(8)
@@ -301,20 +316,30 @@ struct ClashSettingsView: View {
                                 settings.socksPort = oldValue
                             }
                         }
-                        .onSubmit { reloadConfigIfRunning() }
+                        .onSubmit {
+                            if settings.socksPort.isEmpty {
+                                settings.socksPort = "7891"
+                            }
+                            reloadConfigIfRunning()
+                        }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "External Controller", subtitle: "RESTful API endpoint") {
-                    TextField("", text: $settings.externalController)
+                    TextField("127.0.0.1:9090", text: $settings.externalController)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12, design: .monospaced))
                         .padding(8)
                         .background(Color(nsColor: .textBackgroundColor))
                         .cornerRadius(6)
                         .frame(width: 160)
-                        .onSubmit { reloadConfigIfRunning() }
+                        .onSubmit {
+                            if settings.externalController.isEmpty {
+                                settings.externalController = "127.0.0.1:9090"
+                            }
+                            reloadConfigIfRunning()
+                        }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
@@ -366,7 +391,7 @@ struct ClashSettingsView: View {
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "Update Interval", subtitle: "GeoIP update interval in hours") {
-                    TextField("", value: Binding(
+                    TextField("24", value: Binding(
                         get: { settings.geoUpdateInterval },
                         set: { newValue in
                             settings.geoUpdateInterval = newValue
@@ -379,6 +404,11 @@ struct ClashSettingsView: View {
                         .background(Color(nsColor: .textBackgroundColor))
                         .cornerRadius(6)
                         .frame(width: 80)
+                        .onSubmit {
+                            if settings.geoUpdateInterval <= 0 {
+                                settings.geoUpdateInterval = 24
+                            }
+                        }
                 }
             }
         }
