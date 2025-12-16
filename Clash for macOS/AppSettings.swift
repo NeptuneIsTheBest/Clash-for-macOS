@@ -23,6 +23,7 @@ class AppSettings {
     
     var appearance: AppearanceMode = .system { didSet { saveSettings() } }
     var showMenuBarIcon = true { didSet { saveSettings() } }
+    var showSpeedInStatusBar = false { didSet { saveSettings() } }
     
     var autoUpdateGeoIP = true { didSet { saveSettings() } }
     var geoIPUrl = "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb" { didSet { saveSettings() } }
@@ -81,6 +82,7 @@ class AppSettings {
             appearance = mode
         }
         showMenuBarIcon = defaults.object(forKey: "showMenuBarIcon") as? Bool ?? true
+        showSpeedInStatusBar = defaults.bool(forKey: "showSpeedInStatusBar")
         
         autoUpdateGeoIP = defaults.object(forKey: "autoUpdateGeoIP") as? Bool ?? true
         geoIPUrl = defaults.string(forKey: "geoIPUrl") ?? "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb"
@@ -122,6 +124,7 @@ class AppSettings {
         
         defaults.set(appearance.rawValue, forKey: "appearance")
         defaults.set(showMenuBarIcon, forKey: "showMenuBarIcon")
+        defaults.set(showSpeedInStatusBar, forKey: "showSpeedInStatusBar")
         
         defaults.set(autoUpdateGeoIP, forKey: "autoUpdateGeoIP")
         defaults.set(geoIPUrl, forKey: "geoIPUrl")
@@ -158,6 +161,7 @@ class AppSettings {
         
         appearance = .system
         showMenuBarIcon = true
+        showSpeedInStatusBar = false
         
         autoUpdateGeoIP = true
         geoIPUrl = "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb"

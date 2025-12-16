@@ -60,6 +60,15 @@ struct SystemSettingsView: View {
                         .labelsHidden()
                 }
 
+                Divider().background(Color.gray.opacity(0.3))
+
+                SettingsRow(title: "Show Speed in Menu Bar", subtitle: "Display upload/download speed") {
+                    Toggle("", isOn: $settings.showSpeedInStatusBar)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .disabled(!settings.showMenuBarIcon)
+                }
+
             }
         }
     }

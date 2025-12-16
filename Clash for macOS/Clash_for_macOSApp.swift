@@ -7,6 +7,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             manager.startCore()
         }
         
+        StatusBarManager.shared.setup()
+        
         Task {
             await GeoIPManager.shared.updateIfNeeded()
         }
