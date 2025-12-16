@@ -173,7 +173,7 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         
         isStarting = true
         healthMonitor.setManualStop(false)
-        ConfigurationManager.shared.ensureConfigExists()
+        ConfigurationManager.shared.syncConfiguration()
         
         killOrphanClashProcesses()
         
