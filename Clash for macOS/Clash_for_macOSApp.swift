@@ -3,7 +3,8 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let manager = ClashCoreManager.shared
-        if case .installed = manager.coreStatus {
+        let wasRunning = UserDefaults.standard.bool(forKey: "clashCoreWasRunning")
+        if case .installed = manager.coreStatus, wasRunning {
             manager.startCore()
         }
         
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
+        UserDefaults.standard.set(ClashCoreManager.shared.isRunning, forKey: "clashCoreWasRunning")
         ClashCoreManager.shared.stopCore()
     }
     
