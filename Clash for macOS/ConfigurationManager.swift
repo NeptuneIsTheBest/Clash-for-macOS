@@ -91,6 +91,8 @@ log-level: \(settings.logLevel.rawValue.lowercased())
 external-controller: \(settings.externalController)
 secret: \(settings.secret)
 ipv6: \(settings.ipv6)
+geo-auto-update: \(settings.autoUpdateGeoIP)
+geo-update-interval: \(settings.geoUpdateInterval)
 """
         
         if settings.tunMode {
