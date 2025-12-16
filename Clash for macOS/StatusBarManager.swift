@@ -294,14 +294,7 @@ class StatusBarManager: NSObject, ObservableObject {
     @objc private func toggleTunMode() {
         let settings = AppSettings.shared
         settings.tunMode.toggle()
-        
-        if let selectedId = ProfileManager.shared.selectedProfileId,
-           let profile = ProfileManager.shared.profiles.first(where: { $0.id == selectedId }) {
-            ProfileManager.shared.applyProfile(profile)
-        } else {
-            try? FileManager.default.removeItem(at: ClashCoreManager.shared.configPath)
-            ClashCoreManager.shared.reloadConfigViaAPI()
-        }
+        ConfigurationManager.shared.syncConfiguration()
         updateMenu()
     }
     

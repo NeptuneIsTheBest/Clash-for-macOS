@@ -1,16 +1,6 @@
 import Foundation
 import Observation
 
-struct GitHubRelease: Codable {
-    let tag_name: String
-    let assets: [GitHubAsset]
-    
-    struct GitHubAsset: Codable {
-        let name: String
-        let browser_download_url: String
-    }
-}
-
 enum ClashCoreType: String, CaseIterable, Codable {
     case meta = "Meta"
     case rust = "Rust"
@@ -40,7 +30,7 @@ enum CoreStatus {
 }
 
 @Observable
-class ClashCoreManager {
+class ClashCoreManager: CoreHealthMonitorDelegate {
     static let shared = ClashCoreManager()
     
     var currentCoreType: ClashCoreType = .meta
@@ -50,28 +40,26 @@ class ClashCoreManager {
     private var installedVersions: [ClashCoreType: String] = [:]
     private var coreProcess: Process?
     
-    private var healthCheckTimer: Timer?
-    private let healthCheckInterval: TimeInterval = 5.0
-    private(set) var autoRestartEnabled = true
-    private var restartAttempts = 0
-    private let maxRestartAttempts = 3
-    private var isManualStop = false
+    private let healthMonitor = CoreHealthMonitor()
+    private let downloader = CoreDownloader.shared
+    
     private var isStarting = false
     private let startLock = NSLock()
     
     var latestVersion: String = ""
-    var isDownloading = false
-    var downloadProgress: Double = 0
+    
+    var isDownloading: Bool {
+        downloader.isDownloading
+    }
+    
+    var downloadProgress: Double {
+        if case .downloading(let progress) = downloader.status {
+            return progress
+        }
+        return 0
+    }
     
     private let fileManager = FileManager.default
-    
-    private var systemArch: String {
-        #if arch(x86_64)
-        return "x86_64"
-        #else
-        return "arm64"
-        #endif
-    }
     
     var appSupportDirectory: URL {
         let paths = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -90,7 +78,22 @@ class ClashCoreManager {
         coreDirectory.appendingPathComponent(currentCoreType.executableName)
     }
     
+    var configDirectory: URL {
+        let dir = appSupportDirectory.appendingPathComponent("config", isDirectory: true)
+        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    
+    var configPath: URL {
+        configDirectory.appendingPathComponent("config.yaml")
+    }
+    
+    private var useServiceMode: Bool {
+        HelperManager.shared.isHelperInstalled && AppSettings.shared.serviceMode
+    }
+    
     private init() {
+        healthMonitor.delegate = self
         loadSettings()
         checkInstalledCore()
         checkRunningStatus()
@@ -134,120 +137,21 @@ class ClashCoreManager {
         checkInstalledCore()
     }
     
-    private func getMatchRules() -> (keywords: [String], suffix: String?) {
-        let arch = systemArch
-        
-        switch currentCoreType {
-        case .meta:
-            let metaArch = (arch == "x86_64") ? "amd64" : "arm64"
-            return (["mihomo", "darwin", metaArch], ".gz")
-            
-        case .rust:
-            let rustArch = (arch == "x86_64") ? "x86_64" : "aarch64"
-            return (["clash", rustArch, "apple", "darwin"], nil)
-        }
-    }
-    
-    private func fetchLatestReleaseInfo() async throws -> (version: String, downloadURL: URL, fileName: String) {
-        let urlString = "https://api.github.com/repos/\(currentCoreType.repoPath)/releases/latest"
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 10
-        request.setValue("ClashForMacOS/1.0", forHTTPHeaderField: "User-Agent")
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-        
-        let (keywords, requiredSuffix) = getMatchRules()
-        
-        guard let asset = release.assets.first(where: { asset in
-            let name = asset.name.lowercased()
-            
-            let matchKeywords = keywords.allSatisfy { name.contains($0) }
-            
-            let matchSuffix: Bool
-            if let suffix = requiredSuffix {
-                matchSuffix = name.hasSuffix(suffix)
-            } else {
-                matchSuffix = !name.hasSuffix(".gz") && !name.hasSuffix(".zip") && !name.hasSuffix(".sha256")
-            }
-            
-            return matchKeywords && matchSuffix
-        }) else {
-            throw NSError(domain: "ClashCore", code: 404, userInfo: [NSLocalizedDescriptionKey: "No compatible asset found for \(systemArch)"])
-        }
-        
-        guard let downloadURL = URL(string: asset.browser_download_url) else {
-            throw URLError(.badURL)
-        }
-        
-        return (release.tag_name, downloadURL, asset.name)
-    }
-    
     func downloadCore() async {
-        guard !isDownloading else { return }
-        
-        isDownloading = true
-        downloadProgress = 0
         coreStatus = .downloading(progress: 0.1)
         
-        do {
-            let (version, validDownloadURL, fileName) = try await fetchLatestReleaseInfo()
-            
-            let (tempURL, _) = try await URLSession.shared.download(from: validDownloadURL, delegate: nil)
-            
-            downloadProgress = 0.5
-            coreStatus = .downloading(progress: 0.5)
-            
-            try fileManager.createDirectory(at: coreDirectory, withIntermediateDirectories: true)
-            
-            if fileManager.fileExists(atPath: corePath.path) {
-                try fileManager.removeItem(at: corePath)
-            }
-            
-            if fileName.hasSuffix(".gz") {
-                let tempGzURL = tempURL.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".gz")
-                try fileManager.moveItem(at: tempURL, to: tempGzURL)
-                let decompressedData = try decompressGzip(at: tempGzURL)
-                try? fileManager.removeItem(at: tempGzURL)
-                try decompressedData.write(to: corePath)
-            } else {
-                try fileManager.moveItem(at: tempURL, to: corePath)
-            }
-            
-            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: corePath.path)
-            
-            downloadProgress = 1.0
+        let result = await downloader.download(coreType: currentCoreType, to: corePath)
+        
+        if result.success, let version = result.version {
             installedVersions[currentCoreType] = version
             latestVersion = version
             saveSettings()
-            
             coreStatus = .installed(version: version)
-            isDownloading = false
-            
-        } catch {
-            print("Download error: \(error)")
-            coreStatus = .error(error.localizedDescription)
-            isDownloading = false
+        } else if case .failed(let error) = downloader.status {
+            coreStatus = .error(error)
         }
-    }
-    
-    private func decompressGzip(at url: URL) throws -> Data {
-        let outputURL = url.deletingPathExtension()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/gunzip")
-        process.arguments = ["-k", "-f", url.path]
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw NSError(domain: "ClashCore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to decompress gzip file"])
-        }
-        let decompressedData = try Data(contentsOf: outputURL)
-        try? fileManager.removeItem(at: outputURL)
-        return decompressedData
+        
+        downloader.reset()
     }
     
     func deleteCore() throws {
@@ -260,20 +164,6 @@ class ClashCoreManager {
         coreStatus = .notInstalled
     }
     
-    var configDirectory: URL {
-        let dir = appSupportDirectory.appendingPathComponent("config", isDirectory: true)
-        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-    
-    var configPath: URL {
-        configDirectory.appendingPathComponent("config.yaml")
-    }
-    
-    private var useServiceMode: Bool {
-        HelperManager.shared.isHelperInstalled && AppSettings.shared.serviceMode
-    }
-    
     func startCore() {
         startLock.lock()
         defer { startLock.unlock() }
@@ -282,8 +172,8 @@ class ClashCoreManager {
         guard fileManager.fileExists(atPath: corePath.path) else { return }
         
         isStarting = true
-        isManualStop = false
-        ensureDefaultConfig()
+        healthMonitor.setManualStop(false)
+        ConfigurationManager.shared.ensureConfigExists()
         
         killOrphanClashProcesses()
         
@@ -315,10 +205,11 @@ class ClashCoreManager {
             if success {
                 self?.isRunning = true
                 self?.coreProcess = nil
-                self?.restartAttempts = 0
-                self?.startHealthMonitoring()
+                self?.healthMonitor.setProcess(nil)
+                self?.healthMonitor.resetRestartAttempts()
+                self?.healthMonitor.startMonitoring()
             } else {
-                print("Failed to start core via helper: \(error ?? "Unknown error")")
+                print("Failed to start core via helper: (error ?? \"Unknown error\")")
                 self?.isRunning = false
             }
         }
@@ -355,10 +246,11 @@ class ClashCoreManager {
         do {
             try process.run()
             coreProcess = process
+            healthMonitor.setProcess(process)
             isRunning = true
             isStarting = false
-            restartAttempts = 0
-            startHealthMonitoring()
+            healthMonitor.resetRestartAttempts()
+            healthMonitor.startMonitoring()
         } catch {
             print("Failed to start core: \(error)")
             isRunning = false
@@ -367,8 +259,8 @@ class ClashCoreManager {
     }
     
     func stopCore() {
-        isManualStop = true
-        stopHealthMonitoring()
+        healthMonitor.setManualStop(true)
+        healthMonitor.stopMonitoring()
         
         guard isRunning else { return }
         
@@ -393,12 +285,13 @@ class ClashCoreManager {
         guard let process = coreProcess else { return }
         process.terminate()
         coreProcess = nil
+        healthMonitor.setProcess(nil)
         isRunning = false
     }
     
     func restartCore() {
-        isManualStop = false
-        stopHealthMonitoring()
+        healthMonitor.setManualStop(false)
+        healthMonitor.stopMonitoring()
         
         if useServiceMode {
             HelperManager.shared.stopClashCore { [weak self] _, _ in
@@ -453,95 +346,19 @@ class ClashCoreManager {
         }
     }
     
-    private func startHealthMonitoring() {
-        stopHealthMonitoring()
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.healthCheckTimer = Timer.scheduledTimer(withTimeInterval: self.healthCheckInterval, repeats: true) { [weak self] _ in
-                self?.performHealthCheck()
-            }
-        }
-    }
-    
-    private func stopHealthMonitoring() {
-        healthCheckTimer?.invalidate()
-        healthCheckTimer = nil
-    }
-    
-    private func performHealthCheck() {
-        if useServiceMode {
-            HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
-                DispatchQueue.main.async {
-                    self?.handleHealthCheckResult(isRunning: running)
-                }
-            }
-        } else {
-            let running = coreProcess?.isRunning ?? false
-            handleHealthCheckResult(isRunning: running)
-        }
-    }
-    
-    private func handleHealthCheckResult(isRunning: Bool) {
-        let wasRunning = self.isRunning
-        self.isRunning = isRunning
-        
-        if wasRunning && !isRunning && autoRestartEnabled && !isManualStop {
-            attemptAutoRestart()
-        }
-    }
-    
-    private func attemptAutoRestart() {
-        guard restartAttempts < maxRestartAttempts else {
-            print("Max restart attempts reached (\(maxRestartAttempts)), stopping auto-restart")
-            restartAttempts = 0
-            return
-        }
-        
-        restartAttempts += 1
-        print("Attempting auto-restart (\(restartAttempts)/\(maxRestartAttempts))")
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.startCore()
-        }
-    }
-    
     func setAutoRestart(_ enabled: Bool) {
-        autoRestartEnabled = enabled
+        healthMonitor.setAutoRestart(enabled)
     }
     
     func resetRestartAttempts() {
-        restartAttempts = 0
+        healthMonitor.resetRestartAttempts()
     }
     
-    private func ensureDefaultConfig() {
-        guard !fileManager.fileExists(atPath: configPath.path) else { return }
-        
-        let settings = AppSettings.shared
-        var defaultConfig = """
-mixed-port: \(settings.mixedPort)
-port: \(settings.httpPort)
-socks-port: \(settings.socksPort)
-allow-lan: \(settings.allowLAN)
-log-level: \(settings.logLevel.rawValue.lowercased())
-external-controller: \(settings.externalController)
-secret: \(settings.secret)
-ipv6: \(settings.ipv6)
-"""
-        
-        if settings.tunMode {
-            defaultConfig += """
-
-tun:
-  enable: true
-  stack: \(settings.tunStack.configValue)
-  dns-hijack:
-    - \(settings.tunDnsHijack)
-  auto-route: \(settings.tunAutoRoute)
-  auto-detect-interface: \(settings.tunAutoDetectInterface)
-"""
-        }
-        
-        try? defaultConfig.write(to: configPath, atomically: true, encoding: .utf8)
+    func healthMonitor(_ monitor: CoreHealthMonitor, didDetectStateChange isRunning: Bool) {
+        self.isRunning = isRunning
+    }
+    
+    func healthMonitorRequestsRestart(_ monitor: CoreHealthMonitor) {
+        startCore()
     }
 }
-

@@ -46,9 +46,7 @@ class AppSettings {
     }
     
     func generateSecret() {
-        let length = 32
-        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        secret = String((0..<length).map { _ in characters.randomElement()! })
+        secret = UUID().uuidString
     }
     
     private func updateLoginItem() {
@@ -159,6 +157,8 @@ class AppSettings {
     func resetToDefaults() {
         skipSave = true
         
+        SystemProxyManager.shared.disableSystemProxy()
+        
         systemProxy = false
         startAtLogin = false
         tunMode = false
@@ -193,6 +193,9 @@ class AppSettings {
         
         skipSave = false
         saveSettings()
+        updateLoginItem()
+        
+        ConfigurationManager.shared.syncConfiguration()
     }
 }
 

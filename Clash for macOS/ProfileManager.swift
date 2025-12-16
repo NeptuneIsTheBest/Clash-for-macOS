@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import Yams
 
 struct Profile: Identifiable, Codable, Equatable {
     let id: UUID
@@ -241,63 +240,11 @@ class ProfileManager {
     func selectProfile(_ profile: Profile) {
         selectedProfileId = profile.id
         saveProfiles()
-        applyProfile(profile)
+        ConfigurationManager.shared.syncConfiguration()
     }
     
     func applyProfile(_ profile: Profile) {
-        let sourcePath = profilesDirectory.appendingPathComponent(profile.fileName)
-        let destPath = ClashCoreManager.shared.configPath
-        
-        guard fileManager.fileExists(atPath: sourcePath.path) else { return }
-        
-        do {
-            let profileContent = try String(contentsOf: sourcePath, encoding: .utf8)
-            let mergedContent = mergeWithGeneralSettings(profileContent)
-            
-            try mergedContent.write(to: destPath, atomically: true, encoding: .utf8)
-            
-            ClashCoreManager.shared.reloadConfigViaAPI()
-        } catch {
-            print("Failed to apply profile: \(error)")
-        }
-    }
-    
-    private func mergeWithGeneralSettings(_ profileContent: String) -> String {
-        let settings = AppSettings.shared
-        
-        guard var config = try? Yams.load(yaml: profileContent) as? [String: Any] else {
-            return profileContent
-        }
-        
-        config["mixed-port"] = Int(settings.mixedPort) ?? 7890
-        config["port"] = Int(settings.httpPort) ?? 7890
-        config["socks-port"] = Int(settings.socksPort) ?? 7891
-        config["allow-lan"] = settings.allowLAN
-        config["log-level"] = settings.logLevel.rawValue.lowercased()
-        config["external-controller"] = settings.externalController
-        config["secret"] = settings.secret
-        config["ipv6"] = settings.ipv6
-        
-        config["geo-auto-update"] = settings.autoUpdateGeoIP
-        config["geo-update-interval"] = settings.geoUpdateInterval
-        
-        if settings.tunMode {
-            config["tun"] = [
-                "enable": true,
-                "stack": settings.tunStack.configValue,
-                "dns-hijack": [settings.tunDnsHijack],
-                "auto-route": settings.tunAutoRoute,
-                "auto-detect-interface": settings.tunAutoDetectInterface
-            ]
-        } else {
-            config.removeValue(forKey: "tun")
-        }
-        
-        guard let result = try? Yams.dump(object: config, allowUnicode: true) else {
-            return profileContent
-        }
-        
-        return result
+        ConfigurationManager.shared.syncConfiguration()
     }
     
     private func extractProfileName(from response: HTTPURLResponse, url: URL, data: Data) -> String {

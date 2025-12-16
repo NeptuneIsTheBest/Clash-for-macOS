@@ -94,13 +94,7 @@ struct ClashSettingsView: View {
     }
     
     private func reloadConfigIfRunning() {
-        if let selectedId = ProfileManager.shared.selectedProfileId,
-           let profile = ProfileManager.shared.profiles.first(where: { $0.id == selectedId }) {
-            ProfileManager.shared.applyProfile(profile)
-        } else {
-            try? FileManager.default.removeItem(at: ClashCoreManager.shared.configPath)
-            ClashCoreManager.shared.reloadConfigViaAPI()
-        }
+        ConfigurationManager.shared.syncConfiguration()
     }
     
     var body: some View {
@@ -263,6 +257,7 @@ struct ClashSettingsView: View {
                                 settings.mixedPort = oldValue
                             }
                         }
+                        .onSubmit { reloadConfigIfRunning() }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
@@ -284,6 +279,7 @@ struct ClashSettingsView: View {
                                 settings.httpPort = oldValue
                             }
                         }
+                        .onSubmit { reloadConfigIfRunning() }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
@@ -305,6 +301,7 @@ struct ClashSettingsView: View {
                                 settings.socksPort = oldValue
                             }
                         }
+                        .onSubmit { reloadConfigIfRunning() }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
@@ -317,6 +314,7 @@ struct ClashSettingsView: View {
                         .background(Color(nsColor: .textBackgroundColor))
                         .cornerRadius(6)
                         .frame(width: 160)
+                        .onSubmit { reloadConfigIfRunning() }
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
@@ -331,6 +329,7 @@ struct ClashSettingsView: View {
                                 .background(Color(nsColor: .textBackgroundColor))
                                 .cornerRadius(6)
                                 .frame(width: 140)
+                                .onSubmit { reloadConfigIfRunning() }
                         } else {
                             SecureField("", text: $settings.secret)
                                 .textFieldStyle(.plain)
@@ -339,6 +338,7 @@ struct ClashSettingsView: View {
                                 .background(Color(nsColor: .textBackgroundColor))
                                 .cornerRadius(6)
                                 .frame(width: 140)
+                                .onSubmit { reloadConfigIfRunning() }
                         }
                         
                         Button(action: { showSecret.toggle() }) {
