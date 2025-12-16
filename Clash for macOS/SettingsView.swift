@@ -591,7 +591,7 @@ struct CoreManagementView: View {
                         case .downloading(let progress):
                             HStack(spacing: 6) {
                                 ProgressView()
-                                    .scaleEffect(0.7)
+                                    .controlSize(.small)
                                 Text("\(Int(progress * 100))%")
                                     .font(.system(size: 12))
                                     .foregroundStyle(.blue)
@@ -725,8 +725,7 @@ struct ServiceModeSettingsView: View {
                             HStack(spacing: 6) {
                                     if isInstalling {
                                     ProgressView()
-                                        .scaleEffect(0.7)
-                                        .frame(width: 16, height: 16)
+                                        .controlSize(.small)
                                 } else {
                                     Image(systemName: "plus.circle")
                                 }
@@ -747,8 +746,7 @@ struct ServiceModeSettingsView: View {
                                 HStack(spacing: 6) {
                                     if isUpdating {
                                         ProgressView()
-                                            .scaleEffect(0.7)
-                                            .frame(width: 16, height: 16)
+                                            .controlSize(.small)
                                     } else {
                                         Image(systemName: "arrow.clockwise")
                                     }
@@ -769,8 +767,7 @@ struct ServiceModeSettingsView: View {
                             HStack(spacing: 6) {
                                 if isUninstalling {
                                     ProgressView()
-                                        .scaleEffect(0.7)
-                                        .frame(width: 16, height: 16)
+                                        .controlSize(.small)
                                 } else {
                                     Image(systemName: "trash")
                                 }
