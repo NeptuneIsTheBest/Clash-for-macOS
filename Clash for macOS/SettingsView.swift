@@ -723,9 +723,10 @@ struct ServiceModeSettingsView: View {
                     if !helperManager.isHelperInstalled {
                         Button(action: installHelper) {
                             HStack(spacing: 6) {
-                                if isInstalling {
+                                    if isInstalling {
                                     ProgressView()
                                         .scaleEffect(0.7)
+                                        .frame(width: 16, height: 16)
                                 } else {
                                     Image(systemName: "plus.circle")
                                 }
@@ -747,6 +748,7 @@ struct ServiceModeSettingsView: View {
                                     if isUpdating {
                                         ProgressView()
                                             .scaleEffect(0.7)
+                                            .frame(width: 16, height: 16)
                                     } else {
                                         Image(systemName: "arrow.clockwise")
                                     }
@@ -768,6 +770,7 @@ struct ServiceModeSettingsView: View {
                                 if isUninstalling {
                                     ProgressView()
                                         .scaleEffect(0.7)
+                                        .frame(width: 16, height: 16)
                                 } else {
                                     Image(systemName: "trash")
                                 }

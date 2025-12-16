@@ -56,7 +56,10 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
             return false
         }
         
-        newConnection.exportedInterface = NSXPCInterface(with: HelperProtocol.self)
+        let interface = NSXPCInterface(with: HelperProtocol.self)
+        let expectedClasses = NSSet(objects: NSArray.self, NSString.self) as! Set<AnyHashable>
+        interface.setClasses(expectedClasses, for: #selector(HelperProtocol.runPrivilegedCommand(command:arguments:withReply:)), argumentIndex: 1, ofReply: false)
+        newConnection.exportedInterface = interface
         newConnection.exportedObject = self
         
         newConnection.invalidationHandler = { [weak self] in

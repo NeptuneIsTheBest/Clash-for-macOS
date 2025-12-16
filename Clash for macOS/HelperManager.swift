@@ -174,7 +174,10 @@ class HelperManager {
         }
         
         let connection = NSXPCConnection(machServiceName: kHelperToolMachServiceName, options: .privileged)
-        connection.remoteObjectInterface = NSXPCInterface(with: HelperProtocol.self)
+        let interface = NSXPCInterface(with: HelperProtocol.self)
+        let expectedClasses = NSSet(objects: NSArray.self, NSString.self) as! Set<AnyHashable>
+        interface.setClasses(expectedClasses, for: #selector(HelperProtocol.runPrivilegedCommand(command:arguments:withReply:)), argumentIndex: 1, ofReply: false)
+        connection.remoteObjectInterface = interface
         
         connection.invalidationHandler = { [weak self] in
             DispatchQueue.main.async {
