@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Yams
 
 struct Profile: Identifiable, Codable, Equatable {
     let id: UUID
@@ -265,65 +266,37 @@ class ProfileManager {
     
     private func mergeWithGeneralSettings(_ profileContent: String) -> String {
         let settings = AppSettings.shared
-        var lines = profileContent.components(separatedBy: .newlines)
         
-        let generalSettings: [(key: String, value: String)] = [
-            ("mixed-port", settings.mixedPort),
-            ("port", settings.httpPort),
-            ("socks-port", settings.socksPort),
-            ("allow-lan", settings.allowLAN ? "true" : "false"),
-            ("log-level", settings.logLevel.rawValue.lowercased()),
-            ("external-controller", settings.externalController),
-            ("secret", settings.secret),
-            ("ipv6", settings.ipv6 ? "true" : "false")
-        ]
-        
-        var existingKeys = Set<String>()
-        
-        for (index, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-            
-            for setting in generalSettings {
-                if trimmed.hasPrefix("\(setting.key):") {
-                    lines[index] = "\(setting.key): \(setting.value)"
-                    existingKeys.insert(setting.key)
-                    break
-                }
-            }
+        guard var config = try? Yams.load(yaml: profileContent) as? [String: Any] else {
+            return profileContent
         }
         
-        var insertLines: [String] = []
-        for setting in generalSettings where !existingKeys.contains(setting.key) {
-            insertLines.append("\(setting.key): \(setting.value)")
-        }
+        config["mixed-port"] = Int(settings.mixedPort) ?? 7890
+        config["port"] = Int(settings.httpPort) ?? 7890
+        config["socks-port"] = Int(settings.socksPort) ?? 7891
+        config["allow-lan"] = settings.allowLAN
+        config["log-level"] = settings.logLevel.rawValue.lowercased()
+        config["external-controller"] = settings.externalController
+        config["secret"] = settings.secret
+        config["ipv6"] = settings.ipv6
         
         if settings.tunMode {
-            let tunConfig = """
-            tun:
-              enable: true
-              stack: \(settings.tunStack.configValue)
-              dns-hijack:
-                - \(settings.tunDnsHijack)
-              auto-route: \(settings.tunAutoRoute)
-              auto-detect-interface: \(settings.tunAutoDetectInterface)
-            """
-            insertLines.append(tunConfig)
+            config["tun"] = [
+                "enable": true,
+                "stack": settings.tunStack.configValue,
+                "dns-hijack": [settings.tunDnsHijack],
+                "auto-route": settings.tunAutoRoute,
+                "auto-detect-interface": settings.tunAutoDetectInterface
+            ]
+        } else {
+            config.removeValue(forKey: "tun")
         }
         
-        if !insertLines.isEmpty {
-            var insertIndex = 0
-            for (index, line) in lines.enumerated() {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if !trimmed.isEmpty && !trimmed.hasPrefix("#") {
-                    insertIndex = index
-                    break
-                }
-            }
-            lines.insert(contentsOf: insertLines, at: insertIndex)
+        guard let result = try? Yams.dump(object: config, allowUnicode: true) else {
+            return profileContent
         }
         
-        return lines.joined(separator: "\n")
+        return result
     }
     
     private func extractProfileName(from response: HTTPURLResponse, url: URL, data: Data) -> String {
