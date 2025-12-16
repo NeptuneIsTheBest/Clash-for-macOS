@@ -8,10 +8,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         StatusBarManager.shared.setup()
+        
+        if AppSettings.shared.silentStart {
+            DispatchQueue.main.async {
+                NSApp.windows.forEach { $0.close() }
+            }
+        }
     }
     
     func applicationWillTerminate(_ notification: Notification) {
         ClashCoreManager.shared.stopCore()
+    }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        }
+        return true
     }
 }
 

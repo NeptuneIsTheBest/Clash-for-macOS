@@ -370,8 +370,6 @@ class ClashCoreManager {
         isManualStop = false
         stopHealthMonitoring()
         
-        let wasUsingServiceMode = useServiceMode
-        
         if useServiceMode {
             HelperManager.shared.stopClashCore { [weak self] _, _ in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

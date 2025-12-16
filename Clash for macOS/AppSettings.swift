@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 @Observable
 class AppSettings {
@@ -7,7 +8,7 @@ class AppSettings {
     private var skipSave = false
     
     var systemProxy = false { didSet { saveSettings() } }
-    var startAtLogin = false { didSet { saveSettings() } }
+    var startAtLogin = false { didSet { saveSettings(); updateLoginItem() } }
     var tunMode = false { didSet { saveSettings() } }
     var tunStack: TunStackMode = .system { didSet { saveSettings() } }
     var tunDnsHijack = "any:53" { didSet { saveSettings() } }
@@ -32,8 +33,8 @@ class AppSettings {
     var secret = "" { didSet { saveSettings() } }
     
     var logLevel: LogLevelSetting = .info { didSet { saveSettings() } }
-    var bypassSystemProxy = true { didSet { saveSettings() } }
-    var bypassDomains = "127.0.0.1, localhost, *.local, 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, 17.0.0.0/8" { didSet { saveSettings() } }
+    var bypassSystemProxy = true { didSet { saveSettings(); reapplyBypassIfNeeded() } }
+    var bypassDomains = "127.0.0.1, localhost, *.local, 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 100.64.0.0/10, 17.0.0.0/8" { didSet { saveSettings(); reapplyBypassIfNeeded() } }
     
     var serviceMode = false { didSet { saveSettings() } }
     
@@ -50,6 +51,24 @@ class AppSettings {
         secret = String((0..<length).map { _ in characters.randomElement()! })
     }
     
+    private func updateLoginItem() {
+        guard !skipSave else { return }
+        let service = SMAppService.mainApp
+        do {
+            if startAtLogin {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+        } catch {
+            print("Failed to update login item: \(error)")
+        }
+    }
+    
+    private func reapplyBypassIfNeeded() {
+        guard !skipSave, systemProxy else { return }
+        SystemProxyManager.shared.enableSystemProxy()
+    }
     
     func loadSettings() {
         skipSave = true
