@@ -465,6 +465,8 @@ struct AdvancedSettingsView: View {
 struct ActionsSettingsView: View {
     @Bindable var settings: AppSettings
     var geoManager = GeoIPManager.shared
+    @State private var actionStatus: String = ""
+    @State private var statusColor: Color = .secondary
     
     var body: some View {
         SettingsSection(title: "Actions", icon: "bolt.fill") {
@@ -472,6 +474,8 @@ struct ActionsSettingsView: View {
                 HStack(spacing: 12) {
                     ActionButton(title: "Reload Config", icon: "arrow.clockwise", color: .blue) {
                         ClashCoreManager.shared.reloadConfigViaAPI()
+                        actionStatus = "Config reloaded"
+                        statusColor = .blue
                     }
                     
                     ActionButton(
@@ -480,41 +484,53 @@ struct ActionsSettingsView: View {
                         color: geoManager.isDownloading ? .gray : .green
                     ) {
                         Task {
+                            actionStatus = "Updating GeoIP..."
+                            statusColor = .blue
                             await geoManager.downloadAll()
+                            switch geoManager.updateStatus {
+                            case .success:
+                                actionStatus = geoManager.statusText
+                                statusColor = .green
+                            case .error:
+                                actionStatus = geoManager.statusText
+                                statusColor = .red
+                            default:
+                                actionStatus = geoManager.statusText
+                                statusColor = .secondary
+                            }
                         }
                     }
                     .disabled(geoManager.isDownloading)
                     
                     ActionButton(title: "Flush DNS", icon: "network.badge.shield.half.filled", color: .orange) {
                         Task {
-                            try? await ClashAPI.shared.flushFakeIPCache()
+                            do {
+                                try await ClashAPI.shared.flushFakeIPCache()
+                                actionStatus = "DNS cache flushed"
+                                statusColor = .orange
+                            } catch {
+                                actionStatus = "Flush DNS failed"
+                                statusColor = .red
+                            }
                         }
                     }
                     
                     ActionButton(title: "Reset Settings", icon: "arrow.counterclockwise", color: .red) {
                         settings.resetToDefaults()
+                        actionStatus = "Settings reset to defaults"
+                        statusColor = .red
                     }
                 }
                 
-                HStack(spacing: 6) {
-                    Text("GeoIP Status:")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Text(geoManager.statusText)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(geoStatusColor)
-                    Spacer()
+                if !actionStatus.isEmpty {
+                    HStack(spacing: 6) {
+                        Text(actionStatus)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(statusColor)
+                        Spacer()
+                    }
                 }
             }
-        }
-    }
-    
-    private var geoStatusColor: Color {
-        switch geoManager.updateStatus {
-        case .idle: return .secondary
-        case .updating: return .blue
-        case .success: return .green
-        case .error: return .red
         }
     }
 }
