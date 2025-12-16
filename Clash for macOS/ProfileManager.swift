@@ -278,6 +278,9 @@ class ProfileManager {
         config["secret"] = settings.secret
         config["ipv6"] = settings.ipv6
         
+        config["geo-auto-update"] = settings.autoUpdateGeoIP
+        config["geo-update-interval"] = settings.geoUpdateInterval
+        
         if settings.tunMode {
             config["tun"] = [
                 "enable": true,

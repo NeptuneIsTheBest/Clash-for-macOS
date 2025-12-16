@@ -8,10 +8,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         StatusBarManager.shared.setup()
-        
-        Task {
-            await GeoIPManager.shared.updateIfNeeded()
-        }
     }
     
     func applicationWillTerminate(_ notification: Notification) {

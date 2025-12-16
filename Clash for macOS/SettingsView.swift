@@ -352,33 +352,33 @@ struct ClashSettingsView: View {
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "Auto Update GeoIP", subtitle: "Automatically update GeoIP database") {
-                    Toggle("", isOn: $settings.autoUpdateGeoIP)
+                    Toggle("", isOn: Binding(
+                        get: { settings.autoUpdateGeoIP },
+                        set: { newValue in
+                            settings.autoUpdateGeoIP = newValue
+                            reloadConfigIfRunning()
+                        }
+                    ))
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
                 
                 Divider().background(Color.gray.opacity(0.3))
                 
-                SettingsRow(title: "GeoIP URL", subtitle: "Country.mmdb download source") {
-                    TextField("", text: $settings.geoIPUrl)
+                SettingsRow(title: "Update Interval", subtitle: "GeoIP update interval in hours") {
+                    TextField("", value: Binding(
+                        get: { settings.geoUpdateInterval },
+                        set: { newValue in
+                            settings.geoUpdateInterval = newValue
+                            reloadConfigIfRunning()
+                        }
+                    ), format: .number)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 14, design: .monospaced))
                         .padding(8)
                         .background(Color(nsColor: .textBackgroundColor))
                         .cornerRadius(6)
-                        .frame(width: 300)
-                }
-                
-                Divider().background(Color.gray.opacity(0.3))
-                
-                SettingsRow(title: "GeoSite URL", subtitle: "geosite.dat download source") {
-                    TextField("", text: $settings.geoSiteUrl)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 11, design: .monospaced))
-                        .padding(8)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .cornerRadius(6)
-                        .frame(width: 300)
+                        .frame(width: 80)
                 }
             }
         }
@@ -445,7 +445,7 @@ struct ActionsSettingsView: View {
                     }
                     
                     ActionButton(
-                        title: geoManager.isDownloading ? "Downloading..." : "Update GeoIP",
+                        title: geoManager.isDownloading ? "Updating..." : "Update GeoIP",
                         icon: geoManager.isDownloading ? "arrow.down.circle" : "globe",
                         color: geoManager.isDownloading ? .gray : .green
                     ) {
@@ -466,45 +466,24 @@ struct ActionsSettingsView: View {
                     }
                 }
                 
-                HStack(spacing: 20) {
-                    HStack(spacing: 6) {
-                        Text("GeoIP:")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                        Text(geoManager.geoIPLastUpdateText)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(geoIPStatusColor)
-                    }
-                    
-                    HStack(spacing: 6) {
-                        Text("GeoSite:")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                        Text(geoManager.geoSiteLastUpdateText)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(geoSiteStatusColor)
-                    }
-                    
+                HStack(spacing: 6) {
+                    Text("GeoIP Status:")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Text(geoManager.statusText)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(geoStatusColor)
                     Spacer()
                 }
             }
         }
     }
     
-    private var geoIPStatusColor: Color {
-        switch geoManager.geoIPStatus {
-        case .notDownloaded: return .orange
-        case .downloaded: return .green
-        case .downloading: return .blue
-        case .error: return .red
-        }
-    }
-    
-    private var geoSiteStatusColor: Color {
-        switch geoManager.geoSiteStatus {
-        case .notDownloaded: return .orange
-        case .downloaded: return .green
-        case .downloading: return .blue
+    private var geoStatusColor: Color {
+        switch geoManager.updateStatus {
+        case .idle: return .secondary
+        case .updating: return .blue
+        case .success: return .green
         case .error: return .red
         }
     }
@@ -867,7 +846,6 @@ struct ServiceModeSettingsView: View {
 
 struct AboutSettingsView: View {
     var coreManager = ClashCoreManager.shared
-    var geoManager = GeoIPManager.shared
     
     var body: some View {
         SettingsSection(title: "About", icon: "info.circle.fill") {
@@ -888,16 +866,6 @@ struct AboutSettingsView: View {
                         .foregroundStyle(.primary)
                     Spacer()
                     Text(coreVersionText)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Divider().background(Color.gray.opacity(0.3))
-                
-                HStack {
-                    Text("GeoIP Database")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text(geoManager.geoIPLastUpdateText)
                         .foregroundStyle(.secondary)
                 }
 

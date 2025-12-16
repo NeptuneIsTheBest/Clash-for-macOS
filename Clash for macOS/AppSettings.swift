@@ -26,8 +26,7 @@ class AppSettings {
     var showSpeedInStatusBar = false { didSet { saveSettings() } }
     
     var autoUpdateGeoIP = true { didSet { saveSettings() } }
-    var geoIPUrl = "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb" { didSet { saveSettings() } }
-    var geoSiteUrl = "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat" { didSet { saveSettings() } }
+    var geoUpdateInterval = 24 { didSet { saveSettings() } }
     
     var externalController = "127.0.0.1:9090" { didSet { saveSettings() } }
     var secret = "" { didSet { saveSettings() } }
@@ -85,8 +84,7 @@ class AppSettings {
         showSpeedInStatusBar = defaults.bool(forKey: "showSpeedInStatusBar")
         
         autoUpdateGeoIP = defaults.object(forKey: "autoUpdateGeoIP") as? Bool ?? true
-        geoIPUrl = defaults.string(forKey: "geoIPUrl") ?? "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb"
-        geoSiteUrl = defaults.string(forKey: "geoSiteUrl") ?? "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
+        geoUpdateInterval = defaults.object(forKey: "geoUpdateInterval") as? Int ?? 24
         
         externalController = defaults.string(forKey: "externalController") ?? "127.0.0.1:9090"
         secret = defaults.string(forKey: "secret") ?? ""
@@ -127,8 +125,7 @@ class AppSettings {
         defaults.set(showSpeedInStatusBar, forKey: "showSpeedInStatusBar")
         
         defaults.set(autoUpdateGeoIP, forKey: "autoUpdateGeoIP")
-        defaults.set(geoIPUrl, forKey: "geoIPUrl")
-        defaults.set(geoSiteUrl, forKey: "geoSiteUrl")
+        defaults.set(geoUpdateInterval, forKey: "geoUpdateInterval")
         
         defaults.set(externalController, forKey: "externalController")
         defaults.set(secret, forKey: "secret")
@@ -164,8 +161,7 @@ class AppSettings {
         showSpeedInStatusBar = false
         
         autoUpdateGeoIP = true
-        geoIPUrl = "https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb"
-        geoSiteUrl = "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
+        geoUpdateInterval = 24
         
         externalController = "127.0.0.1:9090"
         generateSecret()
