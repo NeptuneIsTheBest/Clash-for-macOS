@@ -84,15 +84,13 @@ struct ClashSettingsView: View {
         return "Enable TUN device for traffic"
     }
     
-    private func restartCoreIfRunning() {
+    private func reloadConfigIfRunning() {
         if let selectedId = ProfileManager.shared.selectedProfileId,
            let profile = ProfileManager.shared.profiles.first(where: { $0.id == selectedId }) {
             ProfileManager.shared.applyProfile(profile)
         } else {
             try? FileManager.default.removeItem(at: ClashCoreManager.shared.configPath)
-            if ClashCoreManager.shared.isRunning {
-                ClashCoreManager.shared.restartCore()
-            }
+            ClashCoreManager.shared.reloadConfigViaAPI()
         }
     }
     
@@ -141,15 +139,7 @@ struct ClashSettingsView: View {
                         get: { settings.tunMode },
                         set: { newValue in
                             settings.tunMode = newValue
-                            if let selectedId = ProfileManager.shared.selectedProfileId,
-                               let profile = ProfileManager.shared.profiles.first(where: { $0.id == selectedId }) {
-                                ProfileManager.shared.applyProfile(profile)
-                            } else {
-                                try? FileManager.default.removeItem(at: ClashCoreManager.shared.configPath)
-                                if ClashCoreManager.shared.isRunning {
-                                    ClashCoreManager.shared.restartCore()
-                                }
-                            }
+                            reloadConfigIfRunning()
                         }
                     ))
                         .toggleStyle(.switch)
@@ -164,7 +154,7 @@ struct ClashSettingsView: View {
                                 get: { settings.tunStack },
                                 set: { newValue in
                                     settings.tunStack = newValue
-                                    restartCoreIfRunning()
+                                    reloadConfigIfRunning()
                                 }
                             )) {
                                 ForEach(TunStackMode.allCases, id: \.self) { mode in
@@ -180,7 +170,7 @@ struct ClashSettingsView: View {
                                 get: { settings.tunDnsHijack },
                                 set: { newValue in
                                     settings.tunDnsHijack = newValue
-                                    restartCoreIfRunning()
+                                    reloadConfigIfRunning()
                                 }
                             ))
                                 .textFieldStyle(.plain)
@@ -196,7 +186,7 @@ struct ClashSettingsView: View {
                                 get: { settings.tunAutoRoute },
                                 set: { newValue in
                                     settings.tunAutoRoute = newValue
-                                    restartCoreIfRunning()
+                                    reloadConfigIfRunning()
                                 }
                             ))
                                 .toggleStyle(.switch)
@@ -208,7 +198,7 @@ struct ClashSettingsView: View {
                                 get: { settings.tunAutoDetectInterface },
                                 set: { newValue in
                                     settings.tunAutoDetectInterface = newValue
-                                    restartCoreIfRunning()
+                                    reloadConfigIfRunning()
                                 }
                             ))
                                 .toggleStyle(.switch)
@@ -220,7 +210,13 @@ struct ClashSettingsView: View {
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "Allow LAN", subtitle: "Allow connections from LAN") {
-                    Toggle("", isOn: $settings.allowLAN)
+                    Toggle("", isOn: Binding(
+                        get: { settings.allowLAN },
+                        set: { newValue in
+                            settings.allowLAN = newValue
+                            ClashCoreManager.shared.updateConfigViaAPI(params: ["allow-lan": newValue])
+                        }
+                    ))
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
@@ -228,7 +224,13 @@ struct ClashSettingsView: View {
                 Divider().background(Color.gray.opacity(0.3))
                 
                 SettingsRow(title: "IPv6", subtitle: "Enable IPv6 support") {
-                    Toggle("", isOn: $settings.ipv6)
+                    Toggle("", isOn: Binding(
+                        get: { settings.ipv6 },
+                        set: { newValue in
+                            settings.ipv6 = newValue
+                            ClashCoreManager.shared.updateConfigViaAPI(params: ["ipv6": newValue])
+                        }
+                    ))
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
@@ -377,7 +379,13 @@ struct AdvancedSettingsView: View {
         SettingsSection(title: "Advanced", icon: "gearshape.2.fill") {
             VStack(spacing: 16) {
                 SettingsRow(title: "Log Level", subtitle: "Minimum log level to display") {
-                    Picker("", selection: $settings.logLevel) {
+                    Picker("", selection: Binding(
+                        get: { settings.logLevel },
+                        set: { newValue in
+                            settings.logLevel = newValue
+                            ClashCoreManager.shared.updateConfigViaAPI(params: ["log-level": newValue.rawValue.lowercased()])
+                        }
+                    )) {
                         ForEach(LogLevelSetting.allCases, id: \.self) { level in
                             Text(level.rawValue).tag(level)
                         }
@@ -398,12 +406,19 @@ struct ActionsSettingsView: View {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
                     ActionButton(title: "Reload Config", icon: "arrow.clockwise", color: .blue) {
+                        ClashCoreManager.shared.reloadConfigViaAPI()
                     }
                     
                     ActionButton(title: "Update GeoIP", icon: "globe", color: .green) {
+                        Task {
+                            try? await ClashAPI.shared.updateGeoDatabases()
+                        }
                     }
                     
                     ActionButton(title: "Flush DNS", icon: "network.badge.shield.half.filled", color: .orange) {
+                        Task {
+                            try? await ClashAPI.shared.flushFakeIPCache()
+                        }
                     }
                     
                     ActionButton(title: "Reset Settings", icon: "arrow.counterclockwise", color: .red) {

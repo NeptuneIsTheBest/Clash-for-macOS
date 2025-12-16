@@ -355,6 +355,28 @@ class ClashCoreManager {
         }
     }
     
+    func reloadConfigViaAPI() {
+        guard isRunning else { return }
+        Task {
+            do {
+                try await ClashAPI.shared.reloadConfigs(force: true, path: configPath.path)
+            } catch {
+                print("Failed to reload config via API: \(error)")
+            }
+        }
+    }
+    
+    func updateConfigViaAPI(params: [String: Any]) {
+        guard isRunning else { return }
+        Task {
+            do {
+                try await ClashAPI.shared.updateConfigs(params: params)
+            } catch {
+                print("Failed to update config via API: \(error)")
+            }
+        }
+    }
+    
     func checkRunningStatus() {
         if HelperManager.shared.isHelperInstalled {
             HelperManager.shared.isClashCoreRunning { [weak self] running, _ in

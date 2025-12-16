@@ -256,9 +256,7 @@ class ProfileManager {
             
             try mergedContent.write(to: destPath, atomically: true, encoding: .utf8)
             
-            if ClashCoreManager.shared.isRunning {
-                ClashCoreManager.shared.restartCore()
-            }
+            ClashCoreManager.shared.reloadConfigViaAPI()
         } catch {
             print("Failed to apply profile: \(error)")
         }
