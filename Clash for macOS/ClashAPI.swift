@@ -1,15 +1,57 @@
 import Foundation
 
-enum ClashAPIError: Error {
+enum ClashAPIError: LocalizedError {
     case invalidURL
-    case requestFailed(Error)
-    case invalidResponse
-    case httpError(statusCode: Int, message: String)
+    case networkError(Error)
+    case timeout
+    case serverError(statusCode: Int, message: String)
+    case clientError(statusCode: Int, message: String)
     case decodingError(Error)
+    case cancelled
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid URL"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .timeout:
+            return "Request timed out"
+        case .serverError(let code, let message):
+            return "Server error (\(code)): \(message)"
+        case .clientError(let code, let message):
+            return "Client error (\(code)): \(message)"
+        case .decodingError(let error):
+            return "Decoding error: \(error.localizedDescription)"
+        case .cancelled:
+            return "Request cancelled"
+        }
+    }
 }
+
+struct EmptyResponse: Decodable {}
 
 class ClashAPI {
     static let shared = ClashAPI()
+    
+    private let requestTimeout: TimeInterval = 30
+    private let streamTimeout: TimeInterval = 60
+    private let maxRetryAttempts = 3
+    private let baseRetryDelay: TimeInterval = 1.0
+    
+    private lazy var session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = requestTimeout
+        config.timeoutIntervalForResource = requestTimeout * 2
+        return URLSession(configuration: config)
+    }()
+    
+    private lazy var streamSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = streamTimeout
+        config.timeoutIntervalForResource = 0
+        return URLSession(configuration: config)
+    }()
     
     private init() {}
     
@@ -24,12 +66,13 @@ class ClashAPI {
     private var secret: String {
         AppSettings.shared.secret
     }
-    private func request<T: Decodable>(
+    
+    private func buildRequest(
         method: String,
         path: String,
         queryItems: [URLQueryItem]? = nil,
         body: Any? = nil
-    ) async throws -> T {
+    ) throws -> URLRequest {
         guard let baseURL = baseURL else {
             throw ClashAPIError.invalidURL
         }
@@ -49,26 +92,97 @@ class ClashAPI {
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         }
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ClashAPIError.invalidResponse
+        return request
+    }
+    
+    private func shouldRetry(error: Error, statusCode: Int?) -> Bool {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut, .networkConnectionLost, .notConnectedToInternet:
+                return true
+            default:
+                return false
+            }
         }
         
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw ClashAPIError.httpError(statusCode: httpResponse.statusCode, message: message)
+        if let code = statusCode, (500...599).contains(code) {
+            return true
         }
+        
+        return false
+    }
+    
+    private func performRequest<T: Decodable>(
+        method: String,
+        path: String,
+        queryItems: [URLQueryItem]? = nil,
+        body: Any? = nil,
+        retryCount: Int = 0
+    ) async throws -> T {
+        let request = try buildRequest(method: method, path: path, queryItems: queryItems, body: body)
         
         do {
-            return try JSONDecoder().decode(T.self, from: data)
-        } catch {
-            print("Decoding error for \(path): \(error)")
-            if let str = String(data: data, encoding: .utf8) {
-                print("Response body: \(str)")
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw ClashAPIError.networkError(URLError(.badServerResponse))
             }
-            throw ClashAPIError.decodingError(error)
+            
+            let statusCode = httpResponse.statusCode
+            
+            if (500...599).contains(statusCode) && retryCount < maxRetryAttempts {
+                let delay = baseRetryDelay * pow(2.0, Double(retryCount))
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await performRequest(method: method, path: path, queryItems: queryItems, body: body, retryCount: retryCount + 1)
+            }
+            
+            guard (200...299).contains(statusCode) else {
+                let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+                if (400...499).contains(statusCode) {
+                    throw ClashAPIError.clientError(statusCode: statusCode, message: message)
+                } else {
+                    throw ClashAPIError.serverError(statusCode: statusCode, message: message)
+                }
+            }
+            
+            if T.self == EmptyResponse.self {
+                return EmptyResponse() as! T
+            }
+            
+            do {
+                return try JSONDecoder().decode(T.self, from: data)
+            } catch {
+                throw ClashAPIError.decodingError(error)
+            }
+            
+        } catch let error as ClashAPIError {
+            throw error
+        } catch {
+            if Task.isCancelled {
+                throw ClashAPIError.cancelled
+            }
+            
+            if shouldRetry(error: error, statusCode: nil) && retryCount < maxRetryAttempts {
+                let delay = baseRetryDelay * pow(2.0, Double(retryCount))
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await performRequest(method: method, path: path, queryItems: queryItems, body: body, retryCount: retryCount + 1)
+            }
+            
+            if let urlError = error as? URLError, urlError.code == .timedOut {
+                throw ClashAPIError.timeout
+            }
+            
+            throw ClashAPIError.networkError(error)
         }
+    }
+    
+    private func request<T: Decodable>(
+        method: String,
+        path: String,
+        queryItems: [URLQueryItem]? = nil,
+        body: Any? = nil
+    ) async throws -> T {
+        try await performRequest(method: method, path: path, queryItems: queryItems, body: body)
     }
     
     private func requestVoid(
@@ -77,59 +191,69 @@ class ClashAPI {
         queryItems: [URLQueryItem]? = nil,
         body: Any? = nil
     ) async throws {
-        guard let baseURL = baseURL else {
-            throw ClashAPIError.invalidURL
-        }
-        
-        var url = baseURL.appendingPathComponent(path)
-        
-        if let queryItems = queryItems {
-            url.append(queryItems: queryItems)
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        if let body = body {
-            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ClashAPIError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw ClashAPIError.httpError(statusCode: httpResponse.statusCode, message: message)
+        let _: EmptyResponse = try await performRequest(method: method, path: path, queryItems: queryItems, body: body)
+    }
+    
+    private func createStream<T>(
+        path: String,
+        transform: @escaping (String) throws -> T?
+    ) -> AsyncThrowingStream<T, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard let baseURL = baseURL else {
+                        continuation.finish(throwing: ClashAPIError.invalidURL)
+                        return
+                    }
+                    
+                    let url = baseURL.appendingPathComponent(path)
+                    var request = URLRequest(url: url)
+                    request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
+                    
+                    let (bytes, response) = try await streamSession.bytes(for: request)
+                    
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        continuation.finish(throwing: ClashAPIError.networkError(URLError(.badServerResponse)))
+                        return
+                    }
+                    
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        continuation.finish(throwing: ClashAPIError.serverError(
+                            statusCode: httpResponse.statusCode,
+                            message: "Stream connection failed"
+                        ))
+                        return
+                    }
+                    
+                    for try await line in bytes.lines {
+                        if Task.isCancelled {
+                            continuation.finish(throwing: ClashAPIError.cancelled)
+                            return
+                        }
+                        
+                        if let value = try transform(line) {
+                            continuation.yield(value)
+                        }
+                    }
+                    
+                    continuation.finish()
+                } catch {
+                    if Task.isCancelled {
+                        continuation.finish(throwing: ClashAPIError.cancelled)
+                    } else {
+                        continuation.finish(throwing: ClashAPIError.networkError(error))
+                    }
+                }
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
         }
     }
     
     func getLogsStream() -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            Task {
-                guard let baseURL = baseURL else {
-                    continuation.finish(throwing: ClashAPIError.invalidURL)
-                    return
-                }
-                let url = baseURL.appendingPathComponent("logs")
-                var request = URLRequest(url: url)
-                request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                    continuation.finish(throwing: ClashAPIError.invalidResponse)
-                    return
-                }
-                
-                for try await line in bytes.lines {
-                    continuation.yield(line)
-                }
-                continuation.finish()
-            }
-        }
+        createStream(path: "logs") { line in line }
     }
     
     struct TrafficInfo: Codable {
@@ -138,30 +262,9 @@ class ClashAPI {
     }
     
     func getTrafficStream() -> AsyncThrowingStream<TrafficInfo, Error> {
-        AsyncThrowingStream { continuation in
-            Task {
-                guard let baseURL = baseURL else {
-                    continuation.finish(throwing: ClashAPIError.invalidURL)
-                    return
-                }
-                let url = baseURL.appendingPathComponent("traffic")
-                var request = URLRequest(url: url)
-                request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
-                
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                    continuation.finish(throwing: ClashAPIError.invalidResponse)
-                    return
-                }
-                
-                for try await line in bytes.lines {
-                    if let data = line.data(using: .utf8),
-                       let info = try? JSONDecoder().decode(TrafficInfo.self, from: data) {
-                        continuation.yield(info)
-                    }
-                }
-                continuation.finish()
-            }
+        createStream(path: "traffic") { line in
+            guard let data = line.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode(TrafficInfo.self, from: data)
         }
     }
     
@@ -171,38 +274,9 @@ class ClashAPI {
     }
     
     func getMemoryStream() -> AsyncThrowingStream<MemoryInfo, Error> {
-         AsyncThrowingStream { continuation in
-            Task {
-                do {
-                    guard let baseURL = baseURL else {
-                        continuation.finish(throwing: ClashAPIError.invalidURL)
-                        return
-                    }
-                    let url = baseURL.appendingPathComponent("memory")
-                    var request = URLRequest(url: url)
-                    request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
-                    
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                    guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                        continuation.finish(throwing: ClashAPIError.invalidResponse)
-                        return
-                    }
-                    
-                    for try await line in bytes.lines {
-                        guard let data = line.data(using: .utf8) else { continue }
-                        do {
-                            let info = try JSONDecoder().decode(MemoryInfo.self, from: data)
-                            continuation.yield(info)
-                        } catch {
-                            print("Memory decode error: \(error), line: \(line)")
-                        }
-                    }
-                    continuation.finish()
-                } catch {
-                    print("Memory stream error: \(error)")
-                    continuation.finish(throwing: error)
-                }
-            }
+        createStream(path: "memory") { line in
+            guard let data = line.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode(MemoryInfo.self, from: data)
         }
     }
     
@@ -318,7 +392,7 @@ class ClashAPI {
     }
     
     func updateProxyProvider(name: String) async throws {
-         guard let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             throw ClashAPIError.invalidURL
         }
         try await requestVoid(method: "PUT", path: "providers/proxies/\(encodedName)")
@@ -404,6 +478,7 @@ class ClashAPI {
         }
         try await requestVoid(method: "DELETE", path: "connections/\(encodedId)")
     }
+    
     func getGroups() async throws -> [String: ProxyNode] {
         let response: ProxiesResponse = try await request(method: "GET", path: "group")
         return response.proxies
@@ -494,7 +569,7 @@ class ClashAPI {
     }
     
     func upgradeCore() async throws {
-         try await requestVoid(method: "POST", path: "upgrade", body: ["path": "", "payload": ""])
+        try await requestVoid(method: "POST", path: "upgrade", body: ["path": "", "payload": ""])
     }
     
     func upgradeUI() async throws {
@@ -505,6 +580,7 @@ class ClashAPI {
         try await requestVoid(method: "POST", path: "upgrade/geo", body: ["path": "", "payload": ""])
     }
 }
+
 enum AnyCodable: Codable {
     case string(String)
     case bool(Bool)
