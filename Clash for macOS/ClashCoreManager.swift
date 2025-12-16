@@ -56,6 +56,8 @@ class ClashCoreManager {
     private var restartAttempts = 0
     private let maxRestartAttempts = 3
     private var isManualStop = false
+    private var isStarting = false
+    private let startLock = NSLock()
     
     var latestVersion: String = ""
     var isDownloading = false
@@ -273,11 +275,17 @@ class ClashCoreManager {
     }
     
     func startCore() {
-        guard !isRunning else { return }
+        startLock.lock()
+        defer { startLock.unlock() }
+        
+        guard !isRunning && !isStarting else { return }
         guard fileManager.fileExists(atPath: corePath.path) else { return }
         
+        isStarting = true
         isManualStop = false
         ensureDefaultConfig()
+        
+        killOrphanClashProcesses()
         
         if useServiceMode {
             startCoreWithHelper()
@@ -286,12 +294,24 @@ class ClashCoreManager {
         }
     }
     
+    private func killOrphanClashProcesses() {
+        for coreType in ClashCoreType.allCases {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+            process.arguments = ["-9", "-f", coreType.executableName]
+            try? process.run()
+            process.waitUntilExit()
+        }
+        Thread.sleep(forTimeInterval: 0.1)
+    }
+    
     private func startCoreWithHelper() {
         HelperManager.shared.startClashCore(
             executablePath: corePath.path,
             configPath: configPath.path,
             workingDirectory: configDirectory.path
         ) { [weak self] success, pid, error in
+            self?.isStarting = false
             if success {
                 self?.isRunning = true
                 self?.coreProcess = nil
@@ -305,6 +325,14 @@ class ClashCoreManager {
     }
     
     private func startCoreDirectly() {
+        if let existingProcess = coreProcess, existingProcess.isRunning {
+            isStarting = false
+            isRunning = true
+            return
+        }
+        
+        coreProcess = nil
+        
         let process = Process()
         process.executableURL = corePath
         process.arguments = ["-d", configDirectory.path]
@@ -328,11 +356,13 @@ class ClashCoreManager {
             try process.run()
             coreProcess = process
             isRunning = true
+            isStarting = false
             restartAttempts = 0
             startHealthMonitoring()
         } catch {
             print("Failed to start core: \(error)")
             isRunning = false
+            isStarting = false
         }
     }
     
