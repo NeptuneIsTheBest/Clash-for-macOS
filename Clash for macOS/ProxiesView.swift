@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import Yams
 
 @Observable
 class ProxiesViewModel {
@@ -61,8 +62,24 @@ class ProxiesViewModel {
             await MainActor.run {
                 self.proxyMode = mode.lowercased()
             }
+            updateConfigFile(mode: mode.lowercased())
         } catch {
             print("Failed to set mode: \(error)")
+        }
+    }
+    
+    private func updateConfigFile(mode: String) {
+        let configPath = ClashCoreManager.shared.configPath
+        guard FileManager.default.fileExists(atPath: configPath.path),
+              let content = try? String(contentsOf: configPath, encoding: .utf8),
+              var config = try? Yams.load(yaml: content) as? [String: Any] else {
+            return
+        }
+        
+        config["mode"] = mode
+        
+        if let result = try? Yams.dump(object: config, allowUnicode: true) {
+            try? result.write(to: configPath, atomically: true, encoding: .utf8)
         }
     }
     

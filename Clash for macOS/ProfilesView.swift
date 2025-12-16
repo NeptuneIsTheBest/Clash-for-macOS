@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ProfilesView: View {
     @State private var importURL: String = ""
@@ -121,7 +120,7 @@ struct ProfilesView: View {
         }
         .fileImporter(
             isPresented: $showFileImporter,
-            allowedContentTypes: [.clashConfig, .yaml],
+            allowedContentTypes: [.yaml],
             allowsMultipleSelection: false
         ) { result in
             switch result {
