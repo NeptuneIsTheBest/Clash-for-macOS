@@ -173,27 +173,35 @@ class ClashAPI {
     func getMemoryStream() -> AsyncThrowingStream<MemoryInfo, Error> {
          AsyncThrowingStream { continuation in
             Task {
-                guard let baseURL = baseURL else {
-                    continuation.finish(throwing: ClashAPIError.invalidURL)
-                    return
-                }
-                let url = baseURL.appendingPathComponent("memory")
-                var request = URLRequest(url: url)
-                request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
-                
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                    continuation.finish(throwing: ClashAPIError.invalidResponse)
-                    return
-                }
-                
-                for try await line in bytes.lines {
-                    if let data = line.data(using: .utf8),
-                       let info = try? JSONDecoder().decode(MemoryInfo.self, from: data) {
-                        continuation.yield(info)
+                do {
+                    guard let baseURL = baseURL else {
+                        continuation.finish(throwing: ClashAPIError.invalidURL)
+                        return
                     }
+                    let url = baseURL.appendingPathComponent("memory")
+                    var request = URLRequest(url: url)
+                    request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
+                    
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+                        continuation.finish(throwing: ClashAPIError.invalidResponse)
+                        return
+                    }
+                    
+                    for try await line in bytes.lines {
+                        guard let data = line.data(using: .utf8) else { continue }
+                        do {
+                            let info = try JSONDecoder().decode(MemoryInfo.self, from: data)
+                            continuation.yield(info)
+                        } catch {
+                            print("Memory decode error: \(error), line: \(line)")
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    print("Memory stream error: \(error)")
+                    continuation.finish(throwing: error)
                 }
-                continuation.finish()
             }
         }
     }

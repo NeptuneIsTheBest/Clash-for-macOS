@@ -141,6 +141,7 @@ struct GeneralView: View {
                     }
                 }
             } catch {
+                print("Memory monitoring error: \(error)")
             }
         }
         

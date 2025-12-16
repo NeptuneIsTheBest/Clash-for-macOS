@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ProfilesView: View {
     @State private var importURL: String = ""
