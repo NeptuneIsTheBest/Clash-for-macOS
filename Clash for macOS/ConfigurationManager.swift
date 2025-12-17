@@ -25,7 +25,9 @@ class ConfigurationManager {
         setupObservers()
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.isInitializing = false
+            Task { @MainActor in
+                self?.isInitializing = false
+            }
         }
     }
     
@@ -44,7 +46,9 @@ class ConfigurationManager {
         syncWorkItem?.cancel()
         
         let workItem = DispatchWorkItem { [weak self] in
-            self?.syncConfiguration()
+            Task { @MainActor in
+                self?.syncConfiguration()
+            }
         }
         syncWorkItem = workItem
         

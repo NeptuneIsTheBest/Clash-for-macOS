@@ -73,7 +73,7 @@ class ProfileManager {
     func startAutoUpdateTimer() {
         autoUpdateTimer?.invalidate()
         autoUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task {
+            Task { @MainActor in
                 await self?.checkAndUpdateProfiles()
             }
         }

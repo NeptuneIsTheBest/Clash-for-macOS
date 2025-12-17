@@ -115,18 +115,18 @@ class HelperManager {
         xpcConnection = nil
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            do {
-                try service.register()
-                DispatchQueue.main.async {
+            Task { @MainActor in
+                do {
+                    try service.register()
                     self?.checkHelperStatus()
-                }
-                completion(true, nil)
-            } catch {
-                let nsError = error as NSError
-                if nsError.domain == "SMAppServiceErrorDomain" && nsError.code == 1 {
-                    completion(false, "User cancelled authorization")
-                } else {
-                    completion(false, error.localizedDescription)
+                    completion(true, nil)
+                } catch {
+                    let nsError = error as NSError
+                    if nsError.domain == "SMAppServiceErrorDomain" && nsError.code == 1 {
+                        completion(false, "User cancelled authorization")
+                    } else {
+                        completion(false, error.localizedDescription)
+                    }
                 }
             }
         }

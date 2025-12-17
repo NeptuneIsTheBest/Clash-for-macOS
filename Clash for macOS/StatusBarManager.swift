@@ -146,9 +146,11 @@ class StatusBarManager: NSObject, ObservableObject {
     
     private func startSpeedSync() {
         speedUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.uploadSpeed = self.dataService.uploadSpeed
-            self.downloadSpeed = self.dataService.downloadSpeed
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.uploadSpeed = self.dataService.uploadSpeed
+                self.downloadSpeed = self.dataService.downloadSpeed
+            }
         }
     }
     

@@ -296,8 +296,10 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         if useServiceMode {
             HelperManager.shared.stopClashCore { [weak self] _, _ in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self?.isRunning = false
-                    self?.startCore()
+                    Task { @MainActor in
+                        self?.isRunning = false
+                        self?.startCore()
+                    }
                 }
             }
         } else {
@@ -307,7 +309,9 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
             }
             isRunning = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.startCore()
+                Task { @MainActor in
+                    self?.startCore()
+                }
             }
         }
     }

@@ -32,7 +32,9 @@ class CoreHealthMonitor {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.healthCheckTimer = Timer.scheduledTimer(withTimeInterval: self.healthCheckInterval, repeats: true) { [weak self] _ in
-                self?.performHealthCheck()
+                Task { @MainActor in
+                    self?.performHealthCheck()
+                }
             }
         }
     }
@@ -89,8 +91,10 @@ class CoreHealthMonitor {
         print("Attempting auto-restart (\(restartAttempts)/\(maxRestartAttempts))")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self else { return }
-            self.delegate?.healthMonitorRequestsRestart(self)
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.delegate?.healthMonitorRequestsRestart(self)
+            }
         }
     }
 }

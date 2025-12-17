@@ -13,7 +13,7 @@ class SystemProxyManager {
     
     private init() {}
     
-    func enableSystemProxy(completion: ((Bool, String?) -> Void)? = nil) {
+    func enableSystemProxy(completion: (@Sendable (Bool, String?) -> Void)? = nil) {
         let bypassDomains = settings.bypassSystemProxy ? settings.bypassDomains : ""
         
         if helperManager.isHelperInstalled {
@@ -37,7 +37,7 @@ class SystemProxyManager {
         }
     }
     
-    func disableSystemProxy(completion: ((Bool, String?) -> Void)? = nil) {
+    func disableSystemProxy(completion: (@Sendable (Bool, String?) -> Void)? = nil) {
         if helperManager.isHelperInstalled {
             helperManager.clearSystemProxy { [weak self] success, error in
                 DispatchQueue.main.async {
@@ -55,7 +55,7 @@ class SystemProxyManager {
         }
     }
     
-    func toggleSystemProxy(enabled: Bool, completion: ((Bool, String?) -> Void)? = nil) {
+    func toggleSystemProxy(enabled: Bool, completion: (@Sendable (Bool, String?) -> Void)? = nil) {
         if enabled {
             enableSystemProxy(completion: completion)
         } else {
@@ -63,11 +63,16 @@ class SystemProxyManager {
         }
     }
     
-    private func setProxyViaNetworkSetup(enable: Bool, completion: ((Bool, String?) -> Void)?) {
+    private func setProxyViaNetworkSetup(enable: Bool, completion: (@Sendable (Bool, String?) -> Void)?) {
+        let mixedPort = settings.mixedPort
+        let socksPort = settings.socksPort
+        let bypassSystemProxy = settings.bypassSystemProxy
+        let bypassDomains = settings.bypassDomains
+        
         DispatchQueue.global().async { [weak self] in
             guard let self = self else { return }
             
-            let services = self.getActiveNetworkServices()
+            let services = self.getActiveNetworkServicesSync()
             guard !services.isEmpty else {
                 DispatchQueue.main.async {
                     self.lastError = "No active network services"
@@ -80,22 +85,22 @@ class SystemProxyManager {
             
             for service in services {
                 if enable {
-                    self.runNetworkSetup(["-setwebproxy", service, "127.0.0.1", self.settings.mixedPort])
-                    self.runNetworkSetup(["-setsecurewebproxy", service, "127.0.0.1", self.settings.mixedPort])
-                    self.runNetworkSetup(["-setsocksfirewallproxy", service, "127.0.0.1", self.settings.socksPort])
+                    self.runNetworkSetupSync(["-setwebproxy", service, "127.0.0.1", mixedPort])
+                    self.runNetworkSetupSync(["-setsecurewebproxy", service, "127.0.0.1", mixedPort])
+                    self.runNetworkSetupSync(["-setsocksfirewallproxy", service, "127.0.0.1", socksPort])
                     
-                    if self.settings.bypassSystemProxy {
-                        let domains = self.settings.bypassDomains.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                        self.runNetworkSetup(["-setproxybypassdomains", service] + domains)
+                    if bypassSystemProxy {
+                        let domains = bypassDomains.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                        self.runNetworkSetupSync(["-setproxybypassdomains", service] + domains)
                     }
                     
-                    self.runNetworkSetup(["-setwebproxystate", service, "on"])
-                    self.runNetworkSetup(["-setsecurewebproxystate", service, "on"])
-                    self.runNetworkSetup(["-setsocksfirewallproxystate", service, "on"])
+                    self.runNetworkSetupSync(["-setwebproxystate", service, "on"])
+                    self.runNetworkSetupSync(["-setsecurewebproxystate", service, "on"])
+                    self.runNetworkSetupSync(["-setsocksfirewallproxystate", service, "on"])
                 } else {
-                    self.runNetworkSetup(["-setwebproxystate", service, "off"])
-                    self.runNetworkSetup(["-setsecurewebproxystate", service, "off"])
-                    self.runNetworkSetup(["-setsocksfirewallproxystate", service, "off"])
+                    self.runNetworkSetupSync(["-setwebproxystate", service, "off"])
+                    self.runNetworkSetupSync(["-setsecurewebproxystate", service, "off"])
+                    self.runNetworkSetupSync(["-setsocksfirewallproxystate", service, "off"])
                 }
             }
             
@@ -107,7 +112,7 @@ class SystemProxyManager {
         }
     }
     
-    private func getActiveNetworkServices() -> [String] {
+    private nonisolated func getActiveNetworkServicesSync() -> [String] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
         process.arguments = ["-listallnetworkservices"]
@@ -130,7 +135,7 @@ class SystemProxyManager {
     }
     
     @discardableResult
-    private func runNetworkSetup(_ arguments: [String]) -> Bool {
+    private nonisolated func runNetworkSetupSync(_ arguments: [String]) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
         process.arguments = arguments
