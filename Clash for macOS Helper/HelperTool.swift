@@ -225,13 +225,14 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Se
             clashProcessPID = process.processIdentifier
             processLock.unlock()
             
+            nonisolated(unsafe) let sendableReply = reply
             DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) { [weak self] in
                 self?.processLock.lock()
                 let isRunning = process.isRunning
                 self?.processLock.unlock()
                 
                 if isRunning {
-                    reply(true, process.processIdentifier, nil)
+                    sendableReply(true, process.processIdentifier, nil)
                 } else {
                     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
                     let errorString = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -242,7 +243,7 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Se
                     self?.clashProcessPID = 0
                     self?.processLock.unlock()
                     
-                    reply(false, 0, finalError)
+                    sendableReply(false, 0, finalError)
                 }
             }
         } catch {
@@ -269,6 +270,7 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Se
         
         process.terminate()
         
+        nonisolated(unsafe) let sendableReply = reply
         DispatchQueue.global().async { [weak self] in
             var waited = 0
             while process.isRunning && waited < 20 {
@@ -286,7 +288,7 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Se
             self?.clashProcessPID = 0
             self?.processLock.unlock()
             
-            reply(true, nil)
+            sendableReply(true, nil)
         }
     }
     
@@ -327,6 +329,7 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Se
         process.standardOutput = outputPipe
         process.standardError = errorPipe
         
+        nonisolated(unsafe) let sendableReply = reply
         DispatchQueue.global().async {
             do {
                 try process.run()
@@ -339,12 +342,12 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Se
                 let errorOutput = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 if process.terminationStatus == 0 {
-                    reply(true, output, nil)
+                    sendableReply(true, output, nil)
                 } else {
-                    reply(false, output, errorOutput)
+                    sendableReply(false, output, errorOutput)
                 }
             } catch {
-                reply(false, nil, error.localizedDescription)
+                sendableReply(false, nil, error.localizedDescription)
             }
         }
     }
