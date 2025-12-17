@@ -150,10 +150,10 @@ struct RulesView: View {
                 VStack(spacing: 15) {
                     Image(systemName: "checklist")
                         .font(.system(size: 50))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                     Text("No Rules")
                         .font(.title3)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                     Text("Start Clash core and click refresh to load rules")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -231,7 +231,7 @@ struct RuleRow: View {
         case "RULE-SET":
             return .cyan
         default:
-            return .gray
+            return .secondary
         }
     }
     

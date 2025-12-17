@@ -44,7 +44,7 @@ struct SystemSettingsView: View {
                         .labelsHidden()
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Silent Start", subtitle: "Start minimized") {
                     Toggle("", isOn: $settings.silentStart)
@@ -52,7 +52,7 @@ struct SystemSettingsView: View {
                         .labelsHidden()
                 }
 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
 
                 SettingsRow(title: "Menu Bar Icon", subtitle: "Show Clash icon in menu bar") {
                     Toggle("", isOn: $settings.showMenuBarIcon)
@@ -60,7 +60,7 @@ struct SystemSettingsView: View {
                         .labelsHidden()
                 }
 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
 
                 SettingsRow(title: "Show Speed in Menu Bar", subtitle: "Display upload/download speed") {
                     Toggle("", isOn: $settings.showSpeedInStatusBar)
@@ -112,7 +112,7 @@ struct ClashSettingsView: View {
                         .labelsHidden()
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
 
                 SettingsRow(title: "Bypass System Proxy", subtitle: "Bypass proxy for local addresses") {
                     Toggle("", isOn: $settings.bypassSystemProxy)
@@ -128,7 +128,7 @@ struct ClashSettingsView: View {
                     }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(
                     title: "TUN Mode",
@@ -207,7 +207,7 @@ struct ClashSettingsView: View {
                     }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Allow LAN", subtitle: "Allow connections from LAN") {
                     Toggle("", isOn: Binding(
@@ -221,7 +221,7 @@ struct ClashSettingsView: View {
                         .labelsHidden()
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "IPv6", subtitle: "Enable IPv6 support") {
                     Toggle("", isOn: Binding(
@@ -235,7 +235,7 @@ struct ClashSettingsView: View {
                         .labelsHidden()
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Mixed Port", subtitle: "HTTP/SOCKS5 mixed proxy port") {
                     TextField("7890", text: $settings.mixedPort)
@@ -258,7 +258,7 @@ struct ClashSettingsView: View {
                         }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "HTTP Port", subtitle: "HTTP proxy port") {
                     TextField("7890", text: $settings.httpPort)
@@ -281,7 +281,7 @@ struct ClashSettingsView: View {
                         }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "SOCKS5 Port", subtitle: "SOCKS5 proxy port") {
                     TextField("7891", text: $settings.socksPort)
@@ -304,7 +304,7 @@ struct ClashSettingsView: View {
                         }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "External Controller", subtitle: "RESTful API endpoint") {
                     TextField("127.0.0.1:9090", text: $settings.externalController)
@@ -318,7 +318,7 @@ struct ClashSettingsView: View {
                         }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Secret", subtitle: "API authentication secret") {
                     HStack(spacing: 8) {
@@ -342,7 +342,7 @@ struct ClashSettingsView: View {
                     }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Auto Update GeoIP", subtitle: "Automatically update GeoIP database") {
                     Toggle("", isOn: Binding(
@@ -356,7 +356,7 @@ struct ClashSettingsView: View {
                         .labelsHidden()
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Update Interval", subtitle: "GeoIP update interval in hours") {
                     TextField("24", value: Binding(
@@ -518,7 +518,7 @@ struct CoreManagementView: View {
                     }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 HStack(spacing: 12) {
                     if coreManager.isRunning {
@@ -569,7 +569,7 @@ struct CoreManagementView: View {
                     Spacer()
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Core Type", subtitle: "Select Clash core variant") {
                     Picker("", selection: Binding(
@@ -585,7 +585,7 @@ struct CoreManagementView: View {
                     .disabled(coreManager.isRunning)
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Installed Version", subtitle: "Currently installed core") {
                     HStack(spacing: 8) {
@@ -615,7 +615,7 @@ struct CoreManagementView: View {
                     }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 HStack(spacing: 12) {
                     Button(action: {
@@ -702,7 +702,7 @@ struct ServiceModeSettingsView: View {
                         .disabled(!helperManager.isHelperInstalled)
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 SettingsRow(title: "Helper Status", subtitle: "Privileged helper for system integration") {
                     HStack(spacing: 8) {
@@ -727,7 +727,7 @@ struct ServiceModeSettingsView: View {
                     }
                 }
                 
-                Divider().background(Color.gray.opacity(0.3))
+                Divider()
                 
                 HStack(spacing: 12) {
                     if !helperManager.isHelperInstalled {

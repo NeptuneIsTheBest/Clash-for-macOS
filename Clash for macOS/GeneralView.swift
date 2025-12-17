@@ -80,13 +80,13 @@ struct GeneralView: View {
                 SettingsSection(title: "Quick Info", icon: "info.circle") {
                     VStack(spacing: 12) {
                         InfoRow(label: "Mixed Port", value: settings.mixedPort)
-                        Divider().background(Color.gray.opacity(0.3))
+                        Divider()
                         InfoRow(label: "HTTP Port", value: settings.httpPort)
-                        Divider().background(Color.gray.opacity(0.3))
+                        Divider()
                         InfoRow(label: "SOCKS5 Port", value: settings.socksPort)
-                        Divider().background(Color.gray.opacity(0.3))
+                        Divider()
                         InfoRow(label: "External Controller", value: settings.externalController)
-                        Divider().background(Color.gray.opacity(0.3))
+                        Divider()
                         InfoRow(label: "Clash Core", value: coreVersionText)
                     }
                 }

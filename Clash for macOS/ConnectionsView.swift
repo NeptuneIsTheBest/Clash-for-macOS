@@ -212,7 +212,7 @@ struct ConnectionRow: View {
                     
                     Text("\(connection.destinationIP):\(connection.destinationPort)")
                         .font(.caption)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                 }
                 
                 HStack(spacing: 12) {
@@ -221,7 +221,7 @@ struct ConnectionRow: View {
                     Label(connection.rule, systemImage: "text.magnifyingglass")
                 }
                 .font(.caption2)
-                .foregroundStyle(.gray)
+                .foregroundStyle(.secondary)
             }
             
             Spacer()
@@ -246,7 +246,7 @@ struct ConnectionRow: View {
                     }
                 }
                 .font(.caption2)
-                .foregroundStyle(.gray)
+                .foregroundStyle(.secondary)
             }
             .padding(.trailing, 10)
             
@@ -254,7 +254,7 @@ struct ConnectionRow: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             } else {

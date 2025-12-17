@@ -74,10 +74,10 @@ struct RuleProvidersView: View {
                 VStack(spacing: 15) {
                     Image(systemName: "list.bullet.rectangle.portrait.fill")
                         .font(.system(size: 50))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                     Text("No Rule Providers")
                         .font(.title3)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
             } else {

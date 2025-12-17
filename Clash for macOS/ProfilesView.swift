@@ -20,14 +20,14 @@ struct ProfilesView: View {
                             .controlSize(.small)
                             .frame(width: 16, height: 16)
                             .padding(8)
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.primary.opacity(0.1))
                             .clipShape(Circle())
                     } else {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 16))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .padding(8)
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.primary.opacity(0.1))
                             .clipShape(Circle())
                     }
                 }
@@ -73,7 +73,7 @@ struct ProfilesView: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(Color.blue)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color(nsColor: .labelColor))
                                 .cornerRadius(6)
                         }
                     }
@@ -227,7 +227,7 @@ struct ProfileRow: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .foregroundStyle(.gray)
                             .padding(8)
-                            .background(Color.white.opacity(0.05))
+                            .background(Color.primary.opacity(0.05))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -238,7 +238,7 @@ struct ProfileRow: View {
                     Image(systemName: "pencil")
                         .foregroundStyle(.gray)
                         .padding(8)
-                        .background(Color.white.opacity(0.05))
+                        .background(Color.primary.opacity(0.05))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -274,5 +274,4 @@ struct ProfileRow: View {
 #Preview {
     ProfilesView()
         .frame(width: 800, height: 600)
-        .background(Color(red: 0.14, green: 0.14, blue: 0.14))
 }

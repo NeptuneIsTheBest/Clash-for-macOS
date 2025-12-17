@@ -176,7 +176,7 @@ struct ProxiesView: View {
                                     .padding(.vertical, 6)
                                     .padding(.horizontal, 12)
                                     .background(viewModel.proxyMode == mode.lowercased() ? Color.blue : Color.clear)
-                                    .foregroundStyle(viewModel.proxyMode == mode.lowercased() ? .white : .gray)
+                                    .foregroundStyle(viewModel.proxyMode == mode.lowercased() ? Color(nsColor: .selectedTextColor) : .secondary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -195,21 +195,21 @@ struct ProxiesView: View {
                     if viewModel.proxyMode == "direct" {
                         Image(systemName: "arrow.right.circle")
                             .font(.system(size: 48))
-                            .foregroundStyle(.gray)
+                            .foregroundStyle(.secondary)
                         Text("Direct mode enabled")
-                            .foregroundStyle(.gray)
+                            .foregroundStyle(.secondary)
                         Text("All traffic will be sent directly without proxy")
                             .font(.caption)
-                            .foregroundStyle(.gray.opacity(0.7))
+                            .foregroundStyle(.tertiary)
                     } else {
                         Image(systemName: "network.slash")
                             .font(.system(size: 48))
-                            .foregroundStyle(.gray)
+                            .foregroundStyle(.secondary)
                         Text("No proxy groups available")
-                            .foregroundStyle(.gray)
+                            .foregroundStyle(.secondary)
                         Text("Make sure Clash core is running")
                             .font(.caption)
-                            .foregroundStyle(.gray.opacity(0.7))
+                            .foregroundStyle(.tertiary)
                     }
                     Spacer()
                 }
@@ -275,7 +275,7 @@ struct ProxyGroupView: View {
                         .foregroundStyle(.primary)
                     Text(":: \(group.type)")
                         .font(.caption)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                     Spacer()
                     
                     Button(action: onTestGroup) {
@@ -283,7 +283,7 @@ struct ProxyGroupView: View {
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(.primary)
                             .frame(width: 28, height: 28)
-                            .background(Color.gray.opacity(0.15))
+                            .background(Color.secondary.opacity(0.15))
                             .clipShape(Circle())
                             .contentShape(Circle())
                     }
@@ -299,7 +299,7 @@ struct ProxyGroupView: View {
                     }
                     Image(systemName: "chevron.right")
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                 }
                 .padding()
                 .background(Color(nsColor: .controlBackgroundColor))
@@ -339,8 +339,8 @@ struct ProxyCard: View {
     let action: () -> Void
     
     var latencyColor: Color {
-        if isSelected { return .white }
-        if latency == 0 { return .gray }
+        if isSelected { return Color(nsColor: .selectedTextColor) }
+        if latency == 0 { return .secondary }
         if latency < 200 { return .green }
         if latency < 500 { return .orange }
         return .red
@@ -352,7 +352,7 @@ struct ProxyCard: View {
                 Text(name)
                     .font(.subheadline)
                     .lineLimit(1)
-                    .foregroundStyle(isSelected ? .white : .primary)
+                    .foregroundStyle(isSelected ? Color(nsColor: .selectedTextColor) : .primary)
                 
                 HStack {
                     if isTesting {
@@ -365,7 +365,7 @@ struct ProxyCard: View {
                     } else {
                         Text("---")
                             .font(.caption2)
-                            .foregroundStyle(.gray)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
