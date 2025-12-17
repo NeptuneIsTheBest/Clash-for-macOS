@@ -5,13 +5,7 @@ struct GeneralView: View {
     private var coreManager = ClashCoreManager.shared
     private var proxyManager = SystemProxyManager.shared
     private var helperManager = HelperManager.shared
-    @State private var uploadSpeed: Int64 = 0
-    @State private var downloadSpeed: Int64 = 0
-    @State private var memoryUsage: Int64 = 0
-    @State private var activeConnections: Int = 0
-    @State private var trafficTask: Task<Void, Never>?
-    @State private var memoryTask: Task<Void, Never>?
-    @State private var connectionTimer: Timer?
+    private var dataService: ClashDataService { ClashDataService.shared }
     
     var body: some View {
         ScrollView {
@@ -55,28 +49,28 @@ struct GeneralView: View {
                     HStack(spacing: 20) {
                         TrafficCard(
                             title: "Upload",
-                            speed: formatSpeed(uploadSpeed),
+                            speed: formatSpeed(dataService.uploadSpeed),
                             icon: "arrow.up.circle.fill",
                             color: .green
                         )
                         
                         TrafficCard(
                             title: "Download",
-                            speed: formatSpeed(downloadSpeed),
+                            speed: formatSpeed(dataService.downloadSpeed),
                             icon: "arrow.down.circle.fill",
                             color: .blue
                         )
                         
                         TrafficCard(
                             title: "Connections",
-                            speed: "\(activeConnections)",
+                            speed: "\(dataService.activeConnections)",
                             icon: "link",
                             color: .purple
                         )
                         
                         TrafficCard(
                             title: "Memory",
-                            speed: ByteUtils.format(memoryUsage),
+                            speed: ByteUtils.format(dataService.memoryUsage),
                             icon: "memorychip.fill",
                             color: .orange
                         )
@@ -101,12 +95,6 @@ struct GeneralView: View {
             }
             .padding(30)
         }
-        .onAppear {
-            startMonitoring()
-        }
-        .onDisappear {
-            stopMonitoring()
-        }
     }
     
     private var coreVersionText: String {
@@ -114,60 +102,6 @@ struct GeneralView: View {
             return "\(coreManager.currentCoreType.displayName) \(version)"
         }
         return "Not Installed"
-    }
-    
-    private func startMonitoring() {
-        trafficTask = Task {
-            do {
-                let stream = ClashAPI.shared.getTrafficStream()
-                for try await traffic in stream {
-                    await MainActor.run {
-                        uploadSpeed = traffic.up
-                        downloadSpeed = traffic.down
-                    }
-                }
-            } catch {
-            }
-        }
-        
-        memoryTask = Task {
-            do {
-                let stream = ClashAPI.shared.getMemoryStream()
-                for try await memory in stream {
-                    await MainActor.run {
-                        memoryUsage = memory.inuse
-                    }
-                }
-            } catch {
-                print("Memory monitoring error: \(error)")
-            }
-        }
-        
-        connectionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            Task {
-                await fetchConnections()
-            }
-        }
-        Task { await fetchConnections() }
-    }
-    
-    private func stopMonitoring() {
-        trafficTask?.cancel()
-        trafficTask = nil
-        memoryTask?.cancel()
-        memoryTask = nil
-        connectionTimer?.invalidate()
-        connectionTimer = nil
-    }
-    
-    private func fetchConnections() async {
-        do {
-            let response = try await ClashAPI.shared.getConnections()
-            await MainActor.run {
-                activeConnections = response.connections.count
-            }
-        } catch {
-        }
     }
 }
 
@@ -255,3 +189,4 @@ struct InfoRow: View {
     GeneralView()
         .frame(width: 800, height: 600)
 }
+

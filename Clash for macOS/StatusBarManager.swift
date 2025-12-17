@@ -31,8 +31,8 @@ class StatusBarManager: NSObject, ObservableObject {
     static let shared = StatusBarManager()
     
     private var statusItem: NSStatusItem?
-    private var trafficTask: Task<Void, Never>?
     private var proxiesTask: Task<Void, Never>?
+    private var speedUpdateTimer: Timer?
     
     @Published var uploadSpeed: Int64 = 0
     @Published var downloadSpeed: Int64 = 0
@@ -40,6 +40,8 @@ class StatusBarManager: NSObject, ObservableObject {
     
     private var proxyMode: String = "rule"
     private var proxyGroups: [ProxyGroupInfo] = []
+    
+    private var dataService: ClashDataService { ClashDataService.shared }
     
     struct ProxyGroupInfo {
         let name: String
@@ -97,12 +99,12 @@ class StatusBarManager: NSObject, ObservableObject {
         }
         
         updateMenu()
-        startTrafficMonitoring()
+        startSpeedSync()
         refreshProxyData()
     }
     
     private func removeStatusItem() {
-        stopTrafficMonitoring()
+        stopSpeedSync()
         if let item = statusItem {
             NSStatusBar.system.removeStatusItem(item)
             statusItem = nil
@@ -142,24 +144,17 @@ class StatusBarManager: NSObject, ObservableObject {
     
 
     
-    private func startTrafficMonitoring() {
-        trafficTask = Task { [weak self] in
-            do {
-                let stream = ClashAPI.shared.getTrafficStream()
-                for try await traffic in stream {
-                    await MainActor.run {
-                        self?.uploadSpeed = traffic.up
-                        self?.downloadSpeed = traffic.down
-                    }
-                }
-            } catch {
-            }
+    private func startSpeedSync() {
+        speedUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.uploadSpeed = self.dataService.uploadSpeed
+            self.downloadSpeed = self.dataService.downloadSpeed
         }
     }
     
-    private func stopTrafficMonitoring() {
-        trafficTask?.cancel()
-        trafficTask = nil
+    private func stopSpeedSync() {
+        speedUpdateTimer?.invalidate()
+        speedUpdateTimer = nil
     }
     
     func refreshProxyData() {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selection: NavigationItem = .general
+    private var dataService: ClashDataService { ClashDataService.shared }
     
     var body: some View {
         HSplitView {
@@ -29,9 +30,16 @@ struct ContentView: View {
             }
             .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
         }
+        .onAppear {
+            dataService.startMonitoring()
+        }
+        .onDisappear {
+            dataService.stopMonitoring()
+        }
     }
 }
 
 #Preview {
     ContentView()
 }
+
