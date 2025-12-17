@@ -14,6 +14,7 @@ struct ProfileEditorView: View {
     @State private var profileContent: String = ""
     @State private var isSaving: Bool = false
     @State private var showCopyConfirm: Bool = false
+    @State private var yamlError: String?
     
     private let updateIntervalOptions: [(String, Int)] = [
         ("Disabled", 0),
@@ -195,7 +196,23 @@ struct ProfileEditorView: View {
                         .lineSpacing(4)
                         .scrollContentBackground(.hidden)
                         .background(Color(nsColor: .textBackgroundColor))
+                        .onChange(of: profileContent) { _, _ in
+                            yamlError = nil
+                        }
                 }
+            }
+            
+            if let error = yamlError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Invalid YAML: \(error)")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                }
+                .padding(8)
+                .background(Color.red.opacity(0.1))
             }
         }
     }
@@ -232,7 +249,7 @@ struct ProfileEditorView: View {
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
             .controlSize(.large)
-            .disabled(isSaving)
+            .disabled(isSaving || yamlError != nil)
         }
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))
@@ -250,6 +267,11 @@ struct ProfileEditorView: View {
     }
     
     private func saveProfile() {
+        if let error = ProfileManager.shared.validateYAML(profileContent) {
+            yamlError = error
+            return
+        }
+        
         isSaving = true
         
         var updatedProfile = profile
@@ -262,7 +284,13 @@ struct ProfileEditorView: View {
         updatedProfile.useClashProxy = useClashProxy
         
         ProfileManager.shared.updateProfileMetadata(updatedProfile)
-        ProfileManager.shared.saveProfileContent(updatedProfile, content: profileContent)
+        
+        do {
+            let normalizedContent = try ProfileManager.shared.validateAndNormalizeYAML(profileContent)
+            ProfileManager.shared.saveProfileContent(updatedProfile, content: normalizedContent)
+        } catch {
+            ProfileManager.shared.saveProfileContent(updatedProfile, content: profileContent)
+        }
         
         profile = updatedProfile
         

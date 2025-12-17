@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Yams
 
 struct Profile: Identifiable, Codable, Equatable {
     let id: UUID
@@ -137,6 +138,26 @@ class ProfileManager {
         }
     }
     
+    func validateAndNormalizeYAML(_ content: String) throws -> String {
+        guard let parsed = try Yams.load(yaml: content) else {
+            throw YAMLValidationError.emptyContent
+        }
+        
+        let normalized = try Yams.dump(object: parsed, allowUnicode: true)
+        return normalized
+    }
+    
+    func validateYAML(_ content: String) -> String? {
+        do {
+            _ = try validateAndNormalizeYAML(content)
+            return nil
+        } catch let error as Yams.YamlError {
+            return error.localizedDescription
+        } catch {
+            return error.localizedDescription
+        }
+    }
+    
     @discardableResult
     func importProfile(from url: URL) async -> Bool {
         guard url.startAccessingSecurityScopedResource() else {
@@ -147,11 +168,28 @@ class ProfileManager {
         
         do {
             let data = try Data(contentsOf: url)
+            guard let content = String(data: data, encoding: .utf8) else {
+                await MainActor.run {
+                    downloadStatus = .failed("Invalid file encoding")
+                }
+                return false
+            }
+            
+            let normalizedContent: String
+            do {
+                normalizedContent = try validateAndNormalizeYAML(content)
+            } catch {
+                await MainActor.run {
+                    downloadStatus = .failed("Invalid YAML: \(error.localizedDescription)")
+                }
+                return false
+            }
+            
             let profileName = url.deletingPathExtension().lastPathComponent
             let fileName = "\(UUID().uuidString).yaml"
             let filePath = profilesDirectory.appendingPathComponent(fileName)
             
-            try data.write(to: filePath)
+            try normalizedContent.write(to: filePath, atomically: true, encoding: .utf8)
             
             let profile = Profile(
                 name: profileName,
@@ -202,11 +240,28 @@ class ProfileManager {
                 return false
             }
             
+            guard let content = String(data: data, encoding: .utf8) else {
+                await MainActor.run {
+                    downloadStatus = .failed("Invalid file encoding")
+                }
+                return false
+            }
+            
+            let normalizedContent: String
+            do {
+                normalizedContent = try validateAndNormalizeYAML(content)
+            } catch {
+                await MainActor.run {
+                    downloadStatus = .failed("Invalid YAML: \(error.localizedDescription)")
+                }
+                return false
+            }
+            
             let profileName = extractProfileName(from: httpResponse, url: url, data: data)
             let fileName = "\(UUID().uuidString).yaml"
             let filePath = profilesDirectory.appendingPathComponent(fileName)
             
-            try data.write(to: filePath)
+            try normalizedContent.write(to: filePath, atomically: true, encoding: .utf8)
             
             let profile = Profile(
                 name: profileName,
@@ -260,8 +315,29 @@ class ProfileManager {
                 return false
             }
             
+            guard let content = String(data: data, encoding: .utf8) else {
+                if !isAutoUpdate {
+                    await MainActor.run {
+                        downloadStatus = .failed("Invalid file encoding")
+                    }
+                }
+                return false
+            }
+            
+            let normalizedContent: String
+            do {
+                normalizedContent = try validateAndNormalizeYAML(content)
+            } catch {
+                if !isAutoUpdate {
+                    await MainActor.run {
+                        downloadStatus = .failed("Invalid YAML: \(error.localizedDescription)")
+                    }
+                }
+                return false
+            }
+            
             let filePath = profilesDirectory.appendingPathComponent(profile.fileName)
-            try data.write(to: filePath)
+            try normalizedContent.write(to: filePath, atomically: true, encoding: .utf8)
             
             await MainActor.run {
                 if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
@@ -364,6 +440,17 @@ class ProfileManager {
         }
         
         return url.host ?? "Remote Profile"
+    }
+}
+
+enum YAMLValidationError: Error, LocalizedError {
+    case emptyContent
+    
+    var errorDescription: String? {
+        switch self {
+        case .emptyContent:
+            return "YAML content is empty"
+        }
     }
 }
 
