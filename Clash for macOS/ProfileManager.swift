@@ -160,11 +160,12 @@ class ProfileManager {
     
     @discardableResult
     func importProfile(from url: URL) async -> Bool {
-        guard url.startAccessingSecurityScopedResource() else {
-            downloadStatus = .failed("Permission denied")
-            return false
+        let accessGranted = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessGranted {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
-        defer { url.stopAccessingSecurityScopedResource() }
         
         do {
             let data = try Data(contentsOf: url)

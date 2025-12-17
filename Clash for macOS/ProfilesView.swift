@@ -83,9 +83,9 @@ struct ProfilesView: View {
                     Button(action: { showFileImporter = true }) {
                         Image(systemName: "doc.badge.plus")
                             .font(.system(size: 16))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .padding(8)
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.primary.opacity(0.1))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
