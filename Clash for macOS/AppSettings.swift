@@ -203,6 +203,10 @@ class AppSettings {
         updateLoginItem()
         
         ConfigurationManager.shared.syncConfiguration()
+        
+        if ClashCoreManager.shared.isRunning {
+            ClashCoreManager.shared.restartCore()
+        }
     }
 }
 
