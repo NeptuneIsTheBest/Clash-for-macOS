@@ -43,36 +43,11 @@ struct SidebarView: View {
             .padding()
             .padding(.top, 10)
             
-            ScrollView {
-                VStack(spacing: 5) {
-                    ForEach(NavigationItem.allCases) { item in
-                        Button(action: {
-                            selection = item
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: item.icon)
-                                    .frame(width: 20)
-                                Text(item.rawValue)
-                                    .font(.system(size: 14))
-                                Spacer()
-                                if selection == item {
-                                    Rectangle()
-                                        .frame(width: 3)
-                                        .foregroundStyle(Color.blue)
-                                }
-                            }
-                            .foregroundStyle(selection == item ? .primary : .secondary)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 16)
-                            .contentShape(Rectangle())
-                            .background(
-                                selection == item ? Color.primary.opacity(0.1) : Color.clear
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+            List(NavigationItem.allCases, selection: $selection) { item in
+                Label(item.rawValue, systemImage: item.icon)
+                    .tag(item)
             }
+            .listStyle(.sidebar)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {

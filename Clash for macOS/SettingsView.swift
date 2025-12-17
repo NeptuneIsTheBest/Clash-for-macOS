@@ -123,7 +123,7 @@ struct ClashSettingsView: View {
                 if settings.bypassSystemProxy {
                     SettingsRow(title: "Bypass List", subtitle: "Domains and IPs to ignore") {
                         TextField("", text: $settings.bypassDomains)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(.roundedBorder)
                             .frame(width: 300)
                     }
                 }
@@ -172,7 +172,7 @@ struct ClashSettingsView: View {
                                     reloadConfigIfRunning()
                                 }
                             ))
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.roundedBorder)
                                 .frame(width: 160)
                                 .onSubmit {
                                     if settings.tunDnsHijack.isEmpty {
@@ -239,7 +239,7 @@ struct ClashSettingsView: View {
                 
                 SettingsRow(title: "Mixed Port", subtitle: "HTTP/SOCKS5 mixed proxy port") {
                     TextField("7890", text: $settings.mixedPort)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         .onChange(of: settings.mixedPort) { oldValue, newValue in
                             let filtered = newValue.filter { "0123456789".contains($0) }
@@ -262,7 +262,7 @@ struct ClashSettingsView: View {
                 
                 SettingsRow(title: "HTTP Port", subtitle: "HTTP proxy port") {
                     TextField("7890", text: $settings.httpPort)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         .onChange(of: settings.httpPort) { oldValue, newValue in
                             let filtered = newValue.filter { "0123456789".contains($0) }
@@ -285,7 +285,7 @@ struct ClashSettingsView: View {
                 
                 SettingsRow(title: "SOCKS5 Port", subtitle: "SOCKS5 proxy port") {
                     TextField("7891", text: $settings.socksPort)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         .onChange(of: settings.socksPort) { oldValue, newValue in
                             let filtered = newValue.filter { "0123456789".contains($0) }
@@ -308,7 +308,7 @@ struct ClashSettingsView: View {
                 
                 SettingsRow(title: "External Controller", subtitle: "RESTful API endpoint") {
                     TextField("127.0.0.1:9090", text: $settings.externalController)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                         .frame(width: 160)
                         .onSubmit {
                             if settings.externalController.isEmpty {
@@ -324,12 +324,12 @@ struct ClashSettingsView: View {
                     HStack(spacing: 8) {
                         if showSecret {
                             TextField("", text: $settings.secret)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.roundedBorder)
                                 .frame(width: 140)
                                 .onSubmit { reloadConfigIfRunning() }
                         } else {
                             SecureField("", text: $settings.secret)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.roundedBorder)
                                 .frame(width: 140)
                                 .onSubmit { reloadConfigIfRunning() }
                         }
@@ -366,7 +366,7 @@ struct ClashSettingsView: View {
                             reloadConfigIfRunning()
                         }
                     ), format: .number)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         .onSubmit {
                             if settings.geoUpdateInterval <= 0 {

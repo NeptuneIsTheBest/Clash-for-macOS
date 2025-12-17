@@ -66,28 +66,28 @@ struct ProfileEditorView: View {
         Form {
             Section("Basic Information") {
                 TextField("Name", text: $profileName)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .textFieldStyle(.roundedBorder)
                 
                 if profile.type == .remote {
                     TextField("URL", text: $profileURL)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                 }
                 
                 TextField("Notes", text: $profileNotes, axis: .vertical)
                     .lineLimit(3...5)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .textFieldStyle(.roundedBorder)
             }
             
             if profile.type == .remote {
                 Section("Update Settings") {
                     TextField("User-Agent", text: $profileUserAgent)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                     
                     HStack {
                         Text("Auto Update (min)")
                         Spacer()
                         TextField("", value: $updateInterval, format: .number)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .multilineTextAlignment(.trailing)
                             .onSubmit {

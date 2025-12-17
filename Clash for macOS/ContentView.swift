@@ -5,31 +5,29 @@ struct ContentView: View {
     private var dataService: ClashDataService { ClashDataService.shared }
     
     var body: some View {
-        HSplitView {
+        NavigationSplitView {
             SidebarView(selection: $selection)
-            
-            Group {
-                switch selection {
-                case .general:
-                    GeneralView()
-                case .proxies:
-                    ProxiesView()
-                case .profiles:
-                    ProfilesView()
-                case .rules:
-                    RulesView()
-                case .ruleProviders:
-                    RuleProvidersView()
-                case .connections:
-                    ConnectionsView()
-                case .logs:
-                    LogsView()
-                case .settings:
-                    SettingsView()
-                }
+        } detail: {
+            switch selection {
+            case .general:
+                GeneralView()
+            case .proxies:
+                ProxiesView()
+            case .profiles:
+                ProfilesView()
+            case .rules:
+                RulesView()
+            case .ruleProviders:
+                RuleProvidersView()
+            case .connections:
+                ConnectionsView()
+            case .logs:
+                LogsView()
+            case .settings:
+                SettingsView()
             }
-            .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
         }
+        .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 200)
         .onAppear {
             dataService.startMonitoring()
         }
