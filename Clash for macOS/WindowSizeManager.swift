@@ -30,7 +30,6 @@ struct WindowSizeManager {
         
         let screenFrame = screen.visibleFrame
         let screenWidth = screenFrame.width
-        let screenHeight = screenFrame.height
         
         
         let minWidth: CGFloat

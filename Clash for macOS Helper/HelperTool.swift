@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
+class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol, @unchecked Sendable {
     private var clashProcess: Process?
     private var clashProcessPID: Int32 = 0
     private let processLock = NSLock()
