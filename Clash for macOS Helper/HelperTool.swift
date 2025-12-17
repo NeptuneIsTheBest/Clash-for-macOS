@@ -177,7 +177,7 @@ class HelperTool: NSObject, NSXPCListenerDelegate, HelperProtocol {
             return
         }
         
-        // Clean up dead process reference if any
+
         clashProcess = nil
         clashProcessPID = 0
         

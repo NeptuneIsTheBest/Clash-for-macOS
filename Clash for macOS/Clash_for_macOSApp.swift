@@ -38,8 +38,10 @@ struct Clash_for_macOSApp: App {
 
     var body: some Scene {
         Window("Clash for macOS", id: "main") {
+            let config = WindowSizeManager.shared.getCurrentWindowConfig()
             ContentView()
                 .preferredColorScheme(settings.appearance.colorScheme)
+                .frame(minWidth: config.minWidth, idealWidth: config.defaultWidth, maxWidth: .infinity, minHeight: config.minHeight, idealHeight: config.defaultHeight, maxHeight: .infinity)
         }
     }
 }
