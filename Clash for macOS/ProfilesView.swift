@@ -151,18 +151,7 @@ struct ProfilesView: View {
     
 }
 
-extension ProfileDownloadStatus: Equatable {
-    static func == (lhs: ProfileDownloadStatus, rhs: ProfileDownloadStatus) -> Bool {
-        switch (lhs, rhs) {
-        case (.idle, .idle), (.downloading, .downloading), (.success, .success):
-            return true
-        case (.failed(let a), .failed(let b)):
-            return a == b
-        default:
-            return false
-        }
-    }
-}
+
 
 struct ProfileRow: View {
     let profile: Profile

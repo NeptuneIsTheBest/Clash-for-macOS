@@ -37,7 +37,7 @@ struct Profile: Identifiable, Codable, Equatable {
     }
 }
 
-enum ProfileDownloadStatus {
+enum ProfileDownloadStatus: Equatable {
     case idle
     case downloading
     case success
