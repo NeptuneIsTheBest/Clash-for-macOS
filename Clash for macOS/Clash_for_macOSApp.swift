@@ -37,7 +37,7 @@ struct Clash_for_macOSApp: App {
     @State private var settings = AppSettings.shared
 
     var body: some Scene {
-        WindowGroup {
+        Window("Clash for macOS", id: "main") {
             ContentView()
                 .preferredColorScheme(settings.appearance.colorScheme)
         }
