@@ -41,9 +41,7 @@ struct ProfilesView: View {
             SettingsSection(title: "Import Profile", icon: "link") {
                 HStack(spacing: 12) {
                     TextField("Import URL", text: $importURL)
-                        .textFieldStyle(.plain)
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
                     
                     if !importURL.isEmpty {
                         Button(action: { importURL = "" }) {

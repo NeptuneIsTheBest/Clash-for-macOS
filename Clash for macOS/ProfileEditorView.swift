@@ -16,15 +16,7 @@ struct ProfileEditorView: View {
     @State private var showCopyConfirm: Bool = false
     @State private var yamlError: String?
     
-    private let updateIntervalOptions: [(String, Int)] = [
-        ("Disabled", 0),
-        ("30 min", 30),
-        ("1 hour", 60),
-        ("3 hours", 180),
-        ("6 hours", 360),
-        ("12 hours", 720),
-        ("24 hours", 1440)
-    ]
+
     
     var body: some View {
         VStack(spacing: 0) {
@@ -91,10 +83,18 @@ struct ProfileEditorView: View {
                     TextField("User-Agent", text: $profileUserAgent)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                     
-                    Picker("Auto Update", selection: $updateInterval) {
-                        ForEach(updateIntervalOptions, id: \.1) { option in
-                            Text(option.0).tag(option.1)
-                        }
+                    HStack {
+                        Text("Auto Update (min)")
+                        Spacer()
+                        TextField("", value: $updateInterval, format: .number)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .frame(width: 80)
+                            .multilineTextAlignment(.trailing)
+                            .onSubmit {
+                                if updateInterval < 0 {
+                                    updateInterval = 0
+                                }
+                            }
                     }
                 }
                 
@@ -169,38 +169,10 @@ struct ProfileEditorView: View {
             
             Divider()
             
-            GeometryReader { geometry in
-                HStack(spacing: 0) {
-                    // Simple Line Numbers (Static approximation based on line count)
-                    // Note: True synced scrolling with TextEditor is complex in SwiftUI.
-                    // This is a visual guide.
-                    let lineCount = profileContent.components(separatedBy: .newlines).count
-                    ScrollView(.vertical) {
-                        VStack(alignment: .trailing, spacing: 0) {
-                            Text(Array(1...max(1, lineCount)).map(String.init).joined(separator: "\n"))
-                                .font(.system(size: 13, design: .monospaced))
-                                .lineSpacing(4) // Approximate adjustments
-                                .foregroundStyle(.tertiary)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 8)
-                        }
-                    }
-                    .disabled(true) // Disable interaction for line numbers
-                    .frame(width: 40)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                    
-                    Divider()
-                    
-                    TextEditor(text: $profileContent)
-                        .font(.system(size: 13, design: .monospaced))
-                        .lineSpacing(4)
-                        .scrollContentBackground(.hidden)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .onChange(of: profileContent) { _, _ in
-                            yamlError = nil
-                        }
+            LineNumberTextEditor(text: $profileContent)
+                .onChange(of: profileContent) { _, _ in
+                    yamlError = nil
                 }
-            }
             
             if let error = yamlError {
                 HStack {
@@ -327,6 +299,168 @@ struct EditorRow<Content: View>: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             control
+        }
+    }
+}
+
+struct LineNumberTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        
+        let textView = LineNumberTextView()
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.allowsUndo = true
+        textView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.backgroundColor = NSColor.textBackgroundColor
+        textView.textColor = NSColor.textColor
+        textView.isRichText = false
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.delegate = context.coordinator
+        
+        textView.minSize = NSSize(width: 0, height: scrollView.contentSize.height)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+        
+        scrollView.documentView = textView
+        
+        let lineNumberRuler = LineNumberRulerView(textView: textView)
+        scrollView.verticalRulerView = lineNumberRuler
+        scrollView.hasVerticalRuler = true
+        scrollView.rulersVisible = true
+        
+        textView.string = text
+        
+        return scrollView
+    }
+    
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        if textView.string != text {
+            let selectedRanges = textView.selectedRanges
+            textView.string = text
+            textView.selectedRanges = selectedRanges
+        }
+    }
+    
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: LineNumberTextEditor
+        
+        init(_ parent: LineNumberTextEditor) {
+            self.parent = parent
+        }
+        
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
+        }
+    }
+}
+
+class LineNumberTextView: NSTextView {
+    override func didChangeText() {
+        super.didChangeText()
+        if let ruler = enclosingScrollView?.verticalRulerView as? LineNumberRulerView {
+            ruler.needsDisplay = true
+        }
+    }
+}
+
+class LineNumberRulerView: NSRulerView {
+    private weak var textView: NSTextView?
+    
+    init(textView: NSTextView) {
+        self.textView = textView
+        super.init(scrollView: textView.enclosingScrollView!, orientation: .verticalRuler)
+        self.clientView = textView
+        self.ruleThickness = 40
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(textDidChange),
+            name: NSText.didChangeNotification,
+            object: textView
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(boundsDidChange),
+            name: NSView.boundsDidChangeNotification,
+            object: textView.enclosingScrollView?.contentView
+        )
+    }
+    
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    @objc private func textDidChange(_ notification: Notification) {
+        needsDisplay = true
+    }
+    
+    @objc private func boundsDidChange(_ notification: Notification) {
+        needsDisplay = true
+    }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlBackgroundColor.withAlphaComponent(0.5).setFill()
+        dirtyRect.fill()
+        
+        guard let textView = textView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else { return }
+        
+        let visibleRect = scrollView?.contentView.bounds ?? bounds
+        let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.tertiaryLabelColor
+        ]
+        
+        let text = textView.string as NSString
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        
+        var lineNumber = 1
+        for i in 0..<characterRange.location {
+            if text.character(at: i) == UInt16(UnicodeScalar("\n").value) {
+                lineNumber += 1
+            }
+        }
+        
+        var index = characterRange.location
+        while index < characterRange.location + characterRange.length {
+            let lineRange = text.lineRange(for: NSRange(location: index, length: 0))
+            let glyphRangeForLine = layoutManager.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
+            var lineRect = layoutManager.boundingRect(forGlyphRange: glyphRangeForLine, in: textContainer)
+            lineRect.origin.y += textView.textContainerInset.height - visibleRect.origin.y
+            
+            let lineString = "\(lineNumber)" as NSString
+            let stringSize = lineString.size(withAttributes: attributes)
+            let drawPoint = NSPoint(
+                x: ruleThickness - stringSize.width - 8,
+                y: lineRect.origin.y + (lineRect.height - stringSize.height) / 2
+            )
+            lineString.draw(at: drawPoint, withAttributes: attributes)
+            
+            lineNumber += 1
+            index = lineRange.location + lineRange.length
         }
     }
 }

@@ -21,7 +21,7 @@ struct Profile: Identifiable, Codable, Equatable {
         case local
     }
     
-    init(id: UUID = UUID(), name: String, type: ProfileType, url: String? = nil, lastUpdated: Date = Date(), fileName: String = "", notes: String? = nil, userAgent: String = "ClashForMacOS/1.0", updateInterval: Int = 0, useSystemProxy: Bool = false, useClashProxy: Bool = false, lastAutoUpdate: Date? = nil) {
+    init(id: UUID = UUID(), name: String, type: ProfileType, url: String? = nil, lastUpdated: Date = Date(), fileName: String = "", notes: String? = nil, userAgent: String = "ClashForMacOS/1.0", updateInterval: Int = 1440, useSystemProxy: Bool = false, useClashProxy: Bool = false, lastAutoUpdate: Date? = nil) {
         self.id = id
         self.name = name
         self.type = type

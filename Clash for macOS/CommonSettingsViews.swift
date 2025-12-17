@@ -9,12 +9,8 @@ struct SearchField: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.gray)
             TextField(placeholder, text: $text)
-                .textFieldStyle(.plain)
-                .foregroundStyle(.primary)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
         }
-        .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(8)
     }
 }
 
