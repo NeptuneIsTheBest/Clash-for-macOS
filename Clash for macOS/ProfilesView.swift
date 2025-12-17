@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct ProfilesView: View {
     @State private var importURL: String = ""
     @State private var showFileImporter = false
+    @State private var editingProfile: Profile?
     @Bindable private var profileManager = ProfileManager.shared
     
     var body: some View {
@@ -106,6 +107,9 @@ struct ProfilesView: View {
                                     await profileManager.updateProfile(profile)
                                 }
                             },
+                            onEdit: {
+                                editingProfile = profile
+                            },
                             onDelete: {
                                 profileManager.deleteProfile(profile)
                             }
@@ -134,6 +138,17 @@ struct ProfilesView: View {
                 print("Import failed: \(error.localizedDescription)")
             }
         }
+        .sheet(item: $editingProfile) { profile in
+            if let index = profileManager.profiles.firstIndex(where: { $0.id == profile.id }) {
+                ProfileEditorView(
+                    profile: $profileManager.profiles[index],
+                    isPresented: Binding(
+                        get: { editingProfile != nil },
+                        set: { if !$0 { editingProfile = nil } }
+                    )
+                )
+            }
+        }
     }
     
 }
@@ -155,6 +170,7 @@ struct ProfileRow: View {
     let profile: Profile
     let isSelected: Bool
     var onUpdate: () -> Void = {}
+    var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
     
     var body: some View {
@@ -231,8 +247,7 @@ struct ProfileRow: View {
                     .help("Update")
                 }
                 
-                Button(action: {
-                }) {
+                Button(action: onEdit) {
                     Image(systemName: "pencil")
                         .foregroundStyle(.gray)
                         .padding(8)
@@ -258,7 +273,7 @@ struct ProfileRow: View {
                     Label("Update", systemImage: "arrow.triangle.2.circlepath")
                 }
             }
-            Button(action: {}) {
+            Button(action: onEdit) {
                 Label("Edit", systemImage: "pencil")
             }
             Divider()

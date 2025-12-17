@@ -8,19 +8,31 @@ struct Profile: Identifiable, Codable, Equatable {
     var url: String?
     var lastUpdated: Date
     var fileName: String
+    var notes: String?
+    var userAgent: String
+    var updateInterval: Int
+    var useSystemProxy: Bool
+    var useClashProxy: Bool
+    var lastAutoUpdate: Date?
     
     enum ProfileType: String, Codable {
         case remote
         case local
     }
     
-    init(id: UUID = UUID(), name: String, type: ProfileType, url: String? = nil, lastUpdated: Date = Date(), fileName: String = "") {
+    init(id: UUID = UUID(), name: String, type: ProfileType, url: String? = nil, lastUpdated: Date = Date(), fileName: String = "", notes: String? = nil, userAgent: String = "ClashForMacOS/1.0", updateInterval: Int = 0, useSystemProxy: Bool = false, useClashProxy: Bool = false, lastAutoUpdate: Date? = nil) {
         self.id = id
         self.name = name
         self.type = type
         self.url = url
         self.lastUpdated = lastUpdated
         self.fileName = fileName
+        self.notes = notes
+        self.userAgent = userAgent
+        self.updateInterval = updateInterval
+        self.useSystemProxy = useSystemProxy
+        self.useClashProxy = useClashProxy
+        self.lastAutoUpdate = lastAutoUpdate
     }
 }
 
@@ -40,6 +52,7 @@ class ProfileManager {
     var downloadStatus: ProfileDownloadStatus = .idle
     
     private let fileManager = FileManager.default
+    private var autoUpdateTimer: Timer?
     
     var profilesDirectory: URL {
         let dir = ClashCoreManager.shared.appSupportDirectory.appendingPathComponent("profiles", isDirectory: true)
@@ -53,6 +66,51 @@ class ProfileManager {
     
     private init() {
         loadProfiles()
+        startAutoUpdateTimer()
+    }
+    
+    func startAutoUpdateTimer() {
+        autoUpdateTimer?.invalidate()
+        autoUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task {
+                await self?.checkAndUpdateProfiles()
+            }
+        }
+    }
+    
+    func stopAutoUpdateTimer() {
+        autoUpdateTimer?.invalidate()
+        autoUpdateTimer = nil
+    }
+    
+    func checkAndUpdateProfiles() async {
+        let now = Date()
+        for profile in profiles where profile.type == .remote && profile.updateInterval > 0 {
+            let lastUpdate = profile.lastAutoUpdate ?? profile.lastUpdated
+            let intervalSeconds = TimeInterval(profile.updateInterval * 60)
+            if now.timeIntervalSince(lastUpdate) >= intervalSeconds {
+                await updateProfile(profile, isAutoUpdate: true)
+            }
+        }
+    }
+    
+    private func createURLSession(for profile: Profile) -> URLSession {
+        let config = URLSessionConfiguration.default
+        
+        if profile.useClashProxy {
+            let settings = AppSettings.shared
+            config.connectionProxyDictionary = [
+                kCFNetworkProxiesHTTPEnable: true,
+                kCFNetworkProxiesHTTPProxy: "127.0.0.1",
+                kCFNetworkProxiesHTTPPort: Int(settings.httpPort) ?? 7890,
+                kCFProxyTypeHTTPS: true,
+                "HTTPSProxy": "127.0.0.1",
+                "HTTPSPort": Int(settings.httpPort) ?? 7890
+            ]
+        } else if profile.useSystemProxy {
+        }
+        
+        return URLSession(configuration: config)
     }
     
     func loadProfiles() {
@@ -178,22 +236,27 @@ class ProfileManager {
     }
     
     @discardableResult
-    func updateProfile(_ profile: Profile) async -> Bool {
+    func updateProfile(_ profile: Profile, isAutoUpdate: Bool = false) async -> Bool {
         guard profile.type == .remote, let urlString = profile.url else { return false }
         guard let url = URL(string: urlString) else { return false }
         
-        downloadStatus = .downloading
+        if !isAutoUpdate {
+            downloadStatus = .downloading
+        }
         
         do {
             var request = URLRequest(url: url)
             request.timeoutInterval = 30
-            request.setValue("ClashForMacOS/1.0", forHTTPHeaderField: "User-Agent")
+            request.setValue(profile.userAgent, forHTTPHeaderField: "User-Agent")
             
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let session = createURLSession(for: profile)
+            let (data, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
-                downloadStatus = .failed("Update failed")
+                if !isAutoUpdate {
+                    downloadStatus = .failed("Update failed")
+                }
                 return false
             }
             
@@ -203,16 +266,23 @@ class ProfileManager {
             await MainActor.run {
                 if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
                     profiles[index].lastUpdated = Date()
+                    if isAutoUpdate {
+                        profiles[index].lastAutoUpdate = Date()
+                    }
                 }
                 saveProfiles()
-                downloadStatus = .success
+                if !isAutoUpdate {
+                    downloadStatus = .success
+                }
             }
             
             return true
             
         } catch {
             await MainActor.run {
-                downloadStatus = .failed(error.localizedDescription)
+                if !isAutoUpdate {
+                    downloadStatus = .failed(error.localizedDescription)
+                }
             }
             return false
         }
@@ -245,6 +315,32 @@ class ProfileManager {
     
     func applyProfile(_ profile: Profile) {
         ConfigurationManager.shared.syncConfiguration()
+    }
+    
+    func getProfileContent(_ profile: Profile) -> String {
+        let filePath = profilesDirectory.appendingPathComponent(profile.fileName)
+        return (try? String(contentsOf: filePath, encoding: .utf8)) ?? ""
+    }
+    
+    func saveProfileContent(_ profile: Profile, content: String) {
+        let filePath = profilesDirectory.appendingPathComponent(profile.fileName)
+        try? content.write(to: filePath, atomically: true, encoding: .utf8)
+        
+        if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
+            profiles[index].lastUpdated = Date()
+            saveProfiles()
+        }
+        
+        if selectedProfileId == profile.id {
+            ConfigurationManager.shared.syncConfiguration()
+        }
+    }
+    
+    func updateProfileMetadata(_ profile: Profile) {
+        if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
+            profiles[index] = profile
+            saveProfiles()
+        }
     }
     
     private func extractProfileName(from response: HTTPURLResponse, url: URL, data: Data) -> String {
