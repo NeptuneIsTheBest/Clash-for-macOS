@@ -186,7 +186,7 @@ struct ClearButton: View {
                 .padding(.vertical, 6)
                 .padding(.horizontal, 12)
                 .background(Color.red.opacity(0.8))
-                .cornerRadius(6)
+                .cornerRadius(8)
                 .foregroundStyle(.white)
         }
         .buttonStyle(.plain)

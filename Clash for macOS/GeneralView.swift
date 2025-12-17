@@ -164,7 +164,7 @@ struct TrafficCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Color(nsColor: .controlBackgroundColor))
         .cornerRadius(10)
     }
 }

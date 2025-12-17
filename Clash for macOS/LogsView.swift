@@ -219,7 +219,7 @@ struct LogRow: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
         .background(isHovered ? Color.primary.opacity(0.1) : Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
+        .cornerRadius(8)
         .onHover { hovering in
             isHovered = hovering
         }

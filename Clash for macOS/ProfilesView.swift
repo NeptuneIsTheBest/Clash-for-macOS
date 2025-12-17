@@ -247,11 +247,11 @@ struct ProfileRow: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(isSelected ? Color.green.opacity(0.05) : Color(nsColor: .controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 10)
                 .stroke(isSelected ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)
         )
         .contextMenu {

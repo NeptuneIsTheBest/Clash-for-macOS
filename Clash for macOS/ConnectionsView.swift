@@ -229,9 +229,9 @@ struct ConnectionRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(connection.downloadSpeed)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.blue)
                     Text(connection.uploadSpeed)
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(.green)
                 }
                 .font(.system(size: 13))
                 
@@ -263,7 +263,7 @@ struct ConnectionRow: View {
         }
         .padding(12)
         .background(isHovered ? Color.primary.opacity(0.1) : Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
+        .cornerRadius(8)
         .onHover { hovering in
             isHovered = hovering
         }

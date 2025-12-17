@@ -371,8 +371,8 @@ struct ProxyCard: View {
                 }
             }
             .padding(10)
-            .background(isSelected ? Color.blue.opacity(0.8) : Color(nsColor: .textBackgroundColor))
-            .cornerRadius(6)
+            .background(isSelected ? Color.blue.opacity(0.8) : Color(nsColor: .controlBackgroundColor))
+            .cornerRadius(8)
             .opacity(isSelectable ? 1.0 : 0.7)
         }
         .buttonStyle(.plain)
