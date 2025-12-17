@@ -420,25 +420,6 @@ class ProfileManager {
     }
     
     private func extractProfileName(from response: HTTPURLResponse, url: URL, data: Data) -> String {
-        if let disposition = response.value(forHTTPHeaderField: "Content-Disposition"),
-           let match = disposition.range(of: "filename=\"([^\"]+)\"", options: .regularExpression) {
-            let filename = String(disposition[match]).replacingOccurrences(of: "filename=\"", with: "").replacingOccurrences(of: "\"", with: "")
-            return filename.replacingOccurrences(of: ".yaml", with: "").replacingOccurrences(of: ".yml", with: "")
-        }
-        
-        if let content = String(data: data.prefix(500), encoding: .utf8),
-           let nameMatch = content.range(of: "#\\s*(.+)", options: .regularExpression) {
-            let comment = String(content[nameMatch]).dropFirst().trimmingCharacters(in: .whitespaces)
-            if !comment.isEmpty && comment.count < 50 {
-                return String(comment)
-            }
-        }
-        
-        let pathName = url.deletingPathExtension().lastPathComponent
-        if !pathName.isEmpty && pathName != "config" {
-            return pathName
-        }
-        
         return url.host ?? "Remote Profile"
     }
 }
