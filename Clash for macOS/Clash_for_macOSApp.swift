@@ -1,6 +1,9 @@
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    
+    var mainWindow: NSWindow!
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         let manager = ClashCoreManager.shared
         let wasRunning = UserDefaults.standard.bool(forKey: "clashCoreWasRunning")
@@ -10,11 +13,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         StatusBarManager.shared.setup()
         
-        if AppSettings.shared.silentStart {
-            DispatchQueue.main.async {
-                NSApp.windows.forEach { $0.close() }
-            }
+        setupMainWindow()
+        
+        if !AppSettings.shared.silentStart {
+             mainWindow.makeKeyAndOrderFront(nil)
         }
+    }
+    
+    func setupMainWindow() {
+        let config = WindowSizeManager.shared.getCurrentWindowConfig()
+        let contentView = ContentView()
+            .preferredColorScheme(AppSettings.shared.appearance.colorScheme)
+            .frame(minWidth: config.minWidth, idealWidth: config.defaultWidth, maxWidth: .infinity, minHeight: config.minHeight, idealHeight: config.defaultHeight, maxHeight: .infinity)
+        
+        mainWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: config.defaultWidth, height: config.defaultHeight),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered, defer: false)
+        mainWindow.title = "Clash for macOS"
+        mainWindow.center()
+        mainWindow.setFrameAutosaveName("Main Window")
+        mainWindow.contentView = NSHostingView(rootView: contentView)
+        mainWindow.isReleasedWhenClosed = false
+        mainWindow.delegate = self
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -24,9 +45,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
-            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+            mainWindow.makeKeyAndOrderFront(nil)
         }
         return true
+    }
+    
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // Hide window instead of closing to keep app running
+        sender.orderOut(nil)
+        return false 
     }
 }
 
@@ -37,11 +64,8 @@ struct Clash_for_macOSApp: App {
     @State private var settings = AppSettings.shared
 
     var body: some Scene {
-        Window("Clash for macOS", id: "main") {
-            let config = WindowSizeManager.shared.getCurrentWindowConfig()
-            ContentView()
-                .preferredColorScheme(settings.appearance.colorScheme)
-                .frame(minWidth: config.minWidth, idealWidth: config.defaultWidth, maxWidth: .infinity, minHeight: config.minHeight, idealHeight: config.defaultHeight, maxHeight: .infinity)
+        Settings {
+            EmptyView()
         }
     }
 }

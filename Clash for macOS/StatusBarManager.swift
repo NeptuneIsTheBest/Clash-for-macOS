@@ -274,10 +274,8 @@ class StatusBarManager: NSObject, ObservableObject {
     
     @objc private func openMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.isVisible || $0.isMiniaturized }) {
-            window.makeKeyAndOrderFront(nil)
-        } else if let window = NSApp.windows.first {
-            window.makeKeyAndOrderFront(nil)
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.mainWindow.makeKeyAndOrderFront(nil)
         }
     }
     
