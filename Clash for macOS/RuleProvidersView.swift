@@ -3,25 +3,27 @@ import SwiftUI
 struct RuleProvidersView: View {
     @Bindable private var manager = RuleProviderManager.shared
     @State private var searchText = ""
-    
+
     var filteredProviders: [ClashAPI.RuleProvider] {
         if searchText.isEmpty {
             return manager.providers
         } else {
             return manager.providers.filter {
-                $0.name.localizedCaseInsensitiveContains(searchText) ||
-                $0.behavior.localizedCaseInsensitiveContains(searchText)
+                $0.name.localizedCaseInsensitiveContains(searchText)
+                    || $0.behavior.localizedCaseInsensitiveContains(searchText)
             }
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             VStack {
-                SettingsHeader(title: "Rule Providers", subtitle: "\(manager.providers.count) providers loaded") {
+                SettingsHeader(
+                    title: "Rule Providers",
+                    subtitle: "\(manager.providers.count) providers loaded"
+                ) {
                     HStack(spacing: 10) {
-                        
-                        
+
                         Button(action: {
                             Task { await manager.updateAllProviders() }
                         }) {
@@ -33,14 +35,17 @@ struct RuleProvidersView: View {
                         .help("Update All Providers")
                     }
                 }
-                
-                SearchField(placeholder: "Search providers...", text: $searchText)
-                    .padding(.top, 10)
+
+                SearchField(
+                    placeholder: "Search providers...",
+                    text: $searchText
+                )
+                .padding(.top, 10)
             }
             .padding(.horizontal, 30)
             .padding(.top, 30)
             .padding(.bottom, 15)
-            
+
             if manager.isLoading && manager.providers.isEmpty {
                 Spacer()
                 ProgressView()
@@ -108,18 +113,18 @@ struct RuleProvidersView: View {
 @Observable
 class RuleProviderManager {
     static let shared = RuleProviderManager()
-    
+
     var providers: [ClashAPI.RuleProvider] = []
     var isLoading = false
     var errorMessage: String?
     var updatingProviders: Set<String> = []
-    
+
     private init() {}
-    
+
     func fetchProviders() async {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let providersDict = try await ClashAPI.shared.getRuleProviders()
             providers = providersDict.values.sorted { $0.name < $1.name }
@@ -129,7 +134,7 @@ class RuleProviderManager {
             isLoading = false
         }
     }
-    
+
     func updateProvider(_ name: String) async {
         updatingProviders.insert(name)
         do {
@@ -142,7 +147,7 @@ class RuleProviderManager {
         }
         updatingProviders.remove(name)
     }
-    
+
     func updateAllProviders() async {
         isLoading = true
         for provider in providers {
@@ -155,7 +160,7 @@ class RuleProviderManager {
 struct RuleProviderCard: View {
     let provider: ClashAPI.RuleProvider
     @State private var isHovered = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -163,7 +168,7 @@ struct RuleProviderCard: View {
                     HStack {
                         Text(provider.name)
                             .font(.headline)
-                        
+
                         Text(provider.behavior)
                             .font(.caption)
                             .padding(.horizontal, 6)
@@ -171,7 +176,7 @@ struct RuleProviderCard: View {
                             .background(Color.blue.opacity(0.1))
                             .foregroundStyle(.blue)
                             .cornerRadius(4)
-                        
+
                         Text(provider.type)
                             .font(.caption)
                             .padding(.horizontal, 6)
@@ -180,14 +185,14 @@ struct RuleProviderCard: View {
                             .foregroundStyle(.secondary)
                             .cornerRadius(4)
                     }
-                    
+
                     Text("Updated: \(formatDate(provider.updatedAt))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(provider.count)")
                         .font(.title3)
@@ -197,13 +202,17 @@ struct RuleProviderCard: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.trailing, 10)
-                
+
                 Button(action: {
                     Task {
-                        await RuleProviderManager.shared.updateProvider(provider.name)
+                        await RuleProviderManager.shared.updateProvider(
+                            provider.name
+                        )
                     }
                 }) {
-                    if RuleProviderManager.shared.updatingProviders.contains(provider.name) {
+                    if RuleProviderManager.shared.updatingProviders.contains(
+                        provider.name
+                    ) {
                         ProgressView()
                             .scaleEffect(0.5)
                             .frame(width: 20, height: 20)
@@ -218,7 +227,7 @@ struct RuleProviderCard: View {
                 .clipShape(Circle())
                 .help("Update Provider")
             }
-            
+
             HStack {
                 Text(provider.path ?? "")
                     .font(.caption)
@@ -232,7 +241,10 @@ struct RuleProviderCard: View {
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.primary.opacity(isHovered ? 0.1 : 0.05), lineWidth: 1)
+                .stroke(
+                    Color.primary.opacity(isHovered ? 0.1 : 0.05),
+                    lineWidth: 1
+                )
         )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -240,12 +252,14 @@ struct RuleProviderCard: View {
             }
         }
     }
-    
+
     private func formatDate(_ dateString: String?) -> String {
         guard let dateString = dateString else { return "Never" }
 
         let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formatter.formatOptions = [
+            .withInternetDateTime, .withFractionalSeconds,
+        ]
         if let date = formatter.date(from: dateString) {
             return date.formatted(date: .abbreviated, time: .standard)
         }

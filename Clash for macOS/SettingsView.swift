@@ -2,28 +2,28 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable private var settings = AppSettings.shared
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 SettingsHeader(title: "Settings")
-                
+
                 SystemSettingsView(settings: settings)
-                
+
                 ClashSettingsView(settings: settings)
-                
+
                 CoreManagementView()
-                
+
                 ServiceModeSettingsView(settings: settings)
-                
+
                 AppearanceSettingsView(settings: settings)
-                
+
                 AdvancedSettingsView(settings: settings)
-                
+
                 ActionsSettingsView(settings: settings)
-                
+
                 AboutSettingsView()
-                
+
                 Spacer()
             }
             .padding(30)
@@ -31,22 +31,25 @@ struct SettingsView: View {
     }
 }
 
-
 struct SystemSettingsView: View {
     @Bindable var settings: AppSettings
-    
+
     var body: some View {
         SettingsSection(title: "System", icon: "desktopcomputer") {
             VStack(spacing: 16) {
-                SettingsRow(title: "Start with macOS", subtitle: "Launch at login") {
+                SettingsRow(
+                    title: "Start with macOS",
+                    subtitle: "Launch at login"
+                ) {
                     Toggle("", isOn: $settings.startAtLogin)
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Silent Start", subtitle: "Start minimized") {
+
+                SettingsRow(title: "Silent Start", subtitle: "Start minimized")
+                {
                     Toggle("", isOn: $settings.silentStart)
                         .toggleStyle(.switch)
                         .labelsHidden()
@@ -54,7 +57,10 @@ struct SystemSettingsView: View {
 
                 Divider()
 
-                SettingsRow(title: "Menu Bar Icon", subtitle: "Show Clash icon in menu bar") {
+                SettingsRow(
+                    title: "Menu Bar Icon",
+                    subtitle: "Show Clash icon in menu bar"
+                ) {
                     Toggle("", isOn: $settings.showMenuBarIcon)
                         .toggleStyle(.switch)
                         .labelsHidden()
@@ -62,7 +68,10 @@ struct SystemSettingsView: View {
 
                 Divider()
 
-                SettingsRow(title: "Show Speed in Menu Bar", subtitle: "Display upload/download speed") {
+                SettingsRow(
+                    title: "Show Speed in Menu Bar",
+                    subtitle: "Display upload/download speed"
+                ) {
                     Toggle("", isOn: $settings.showSpeedInStatusBar)
                         .toggleStyle(.switch)
                         .labelsHidden()
@@ -79,11 +88,11 @@ struct ClashSettingsView: View {
     @State private var showSecret = false
     private var proxyManager = SystemProxyManager.shared
     private var helperManager = HelperManager.shared
-    
+
     init(settings: AppSettings) {
         self.settings = settings
     }
-    
+
     private var tunModeSubtitle: String {
         if !helperManager.isHelperInstalled {
             return "Requires Service Mode to be installed"
@@ -92,161 +101,227 @@ struct ClashSettingsView: View {
         }
         return "Enable TUN device for traffic"
     }
-    
+
     private func reloadConfigIfRunning() {
         ConfigurationManager.shared.syncConfiguration()
     }
-    
+
     var body: some View {
         SettingsSection(title: "Clash", icon: "network") {
             VStack(spacing: 16) {
-                SettingsRow(title: "System Proxy", subtitle: "Enable system-wide proxy") {
-                    Toggle("", isOn: Binding(
-                        get: { settings.systemProxy },
-                        set: { newValue in
-                            settings.systemProxy = newValue
-                            proxyManager.toggleSystemProxy(enabled: newValue)
-                        }
-                    ))
-                        .toggleStyle(.switch)
-                        .labelsHidden()
+                SettingsRow(
+                    title: "System Proxy",
+                    subtitle: "Enable system-wide proxy"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.systemProxy },
+                            set: { newValue in
+                                settings.systemProxy = newValue
+                                proxyManager.toggleSystemProxy(
+                                    enabled: newValue
+                                )
+                            }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
                 }
-                
+
                 Divider()
 
-                SettingsRow(title: "Bypass System Proxy", subtitle: "Bypass proxy for local addresses") {
+                SettingsRow(
+                    title: "Bypass System Proxy",
+                    subtitle: "Bypass proxy for local addresses"
+                ) {
                     Toggle("", isOn: $settings.bypassSystemProxy)
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
-                
+
                 if settings.bypassSystemProxy {
-                    SettingsRow(title: "Bypass List", subtitle: "Domains and IPs to ignore") {
+                    SettingsRow(
+                        title: "Bypass List",
+                        subtitle: "Domains and IPs to ignore"
+                    ) {
                         TextField("", text: $settings.bypassDomains)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 300)
                     }
                 }
-                
+
                 Divider()
-                
+
                 SettingsRow(
                     title: "TUN Mode",
                     subtitle: tunModeSubtitle
                 ) {
-                    Toggle("", isOn: Binding(
-                        get: { settings.tunMode },
-                        set: { newValue in
-                            settings.tunMode = newValue
-                            reloadConfigIfRunning()
-                        }
-                    ))
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                        .disabled(!helperManager.isHelperInstalled || !settings.serviceMode)
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.tunMode },
+                            set: { newValue in
+                                settings.tunMode = newValue
+                                reloadConfigIfRunning()
+                            }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .disabled(
+                        !helperManager.isHelperInstalled
+                            || !settings.serviceMode
+                    )
                 }
-                
+
                 if settings.tunMode {
                     Group {
-                        SettingsRow(title: "  Stack", subtitle: "TUN interface stack") {
-                            Picker("", selection: Binding(
-                                get: { settings.tunStack },
-                                set: { newValue in
-                                    settings.tunStack = newValue
-                                    reloadConfigIfRunning()
-                                }
-                            )) {
-                                ForEach(TunStackMode.allCases, id: \.self) { mode in
+                        SettingsRow(
+                            title: "  Stack",
+                            subtitle: "TUN interface stack"
+                        ) {
+                            Picker(
+                                "",
+                                selection: Binding(
+                                    get: { settings.tunStack },
+                                    set: { newValue in
+                                        settings.tunStack = newValue
+                                        reloadConfigIfRunning()
+                                    }
+                                )
+                            ) {
+                                ForEach(TunStackMode.allCases, id: \.self) {
+                                    mode in
                                     Text(mode.rawValue).tag(mode)
                                 }
                             }
                             .pickerStyle(.menu)
                             .frame(width: 100)
                         }
-                        
-                        SettingsRow(title: "  DNS Hijack", subtitle: "DNS hijack rules") {
-                            TextField("any:53", text: Binding(
-                                get: { settings.tunDnsHijack },
-                                set: { newValue in
-                                    settings.tunDnsHijack = newValue
-                                    reloadConfigIfRunning()
-                                }
-                            ))
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 160)
-                                .onSubmit {
-                                    if settings.tunDnsHijack.isEmpty {
-                                        settings.tunDnsHijack = "any:53"
+
+                        SettingsRow(
+                            title: "  DNS Hijack",
+                            subtitle: "DNS hijack rules"
+                        ) {
+                            TextField(
+                                "any:53",
+                                text: Binding(
+                                    get: { settings.tunDnsHijack },
+                                    set: { newValue in
+                                        settings.tunDnsHijack = newValue
+                                        reloadConfigIfRunning()
                                     }
+                                )
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 160)
+                            .onSubmit {
+                                if settings.tunDnsHijack.isEmpty {
+                                    settings.tunDnsHijack = "any:53"
                                 }
+                            }
                         }
-                        
-                        SettingsRow(title: "  Auto Route", subtitle: "Add default route") {
-                            Toggle("", isOn: Binding(
-                                get: { settings.tunAutoRoute },
-                                set: { newValue in
-                                    settings.tunAutoRoute = newValue
-                                    reloadConfigIfRunning()
-                                }
-                            ))
-                                .toggleStyle(.switch)
-                                .labelsHidden()
+
+                        SettingsRow(
+                            title: "  Auto Route",
+                            subtitle: "Add default route"
+                        ) {
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: { settings.tunAutoRoute },
+                                    set: { newValue in
+                                        settings.tunAutoRoute = newValue
+                                        reloadConfigIfRunning()
+                                    }
+                                )
+                            )
+                            .toggleStyle(.switch)
+                            .labelsHidden()
                         }
-                        
-                        SettingsRow(title: "  Auto Detect Interface", subtitle: "Auto detect interface") {
-                            Toggle("", isOn: Binding(
-                                get: { settings.tunAutoDetectInterface },
-                                set: { newValue in
-                                    settings.tunAutoDetectInterface = newValue
-                                    reloadConfigIfRunning()
-                                }
-                            ))
-                                .toggleStyle(.switch)
-                                .labelsHidden()
+
+                        SettingsRow(
+                            title: "  Auto Detect Interface",
+                            subtitle: "Auto detect interface"
+                        ) {
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: { settings.tunAutoDetectInterface },
+                                    set: { newValue in
+                                        settings.tunAutoDetectInterface =
+                                            newValue
+                                        reloadConfigIfRunning()
+                                    }
+                                )
+                            )
+                            .toggleStyle(.switch)
+                            .labelsHidden()
                         }
                     }
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Allow LAN", subtitle: "Allow connections from LAN") {
-                    Toggle("", isOn: Binding(
-                        get: { settings.allowLAN },
-                        set: { newValue in
-                            settings.allowLAN = newValue
-                            ClashCoreManager.shared.updateConfigViaAPI(params: ["allow-lan": newValue])
-                        }
-                    ))
-                        .toggleStyle(.switch)
-                        .labelsHidden()
+
+                SettingsRow(
+                    title: "Allow LAN",
+                    subtitle: "Allow connections from LAN"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.allowLAN },
+                            set: { newValue in
+                                settings.allowLAN = newValue
+                                ClashCoreManager.shared.updateConfigViaAPI(
+                                    params: ["allow-lan": newValue])
+                            }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
                 }
-                
+
                 Divider()
-                
+
                 SettingsRow(title: "IPv6", subtitle: "Enable IPv6 support") {
-                    Toggle("", isOn: Binding(
-                        get: { settings.ipv6 },
-                        set: { newValue in
-                            settings.ipv6 = newValue
-                            ClashCoreManager.shared.updateConfigViaAPI(params: ["ipv6": newValue])
-                        }
-                    ))
-                        .toggleStyle(.switch)
-                        .labelsHidden()
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.ipv6 },
+                            set: { newValue in
+                                settings.ipv6 = newValue
+                                ClashCoreManager.shared.updateConfigViaAPI(
+                                    params: ["ipv6": newValue])
+                            }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Mixed Port", subtitle: "HTTP/SOCKS5 mixed proxy port") {
+
+                SettingsRow(
+                    title: "Mixed Port",
+                    subtitle: "HTTP/SOCKS5 mixed proxy port"
+                ) {
                     TextField("7890", text: $settings.mixedPort)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
-                        .onChange(of: settings.mixedPort) { oldValue, newValue in
-                            let filtered = newValue.filter { "0123456789".contains($0) }
+                        .onChange(of: settings.mixedPort) {
+                            oldValue,
+                            newValue in
+                            let filtered = newValue.filter {
+                                "0123456789".contains($0)
+                            }
                             if filtered != newValue {
                                 settings.mixedPort = filtered
                             }
-                            if let port = Int(filtered), (port < 1 || port > 65535) {
+                            if let port = Int(filtered),
+                                port < 1 || port > 65535
+                            {
                                 settings.mixedPort = oldValue
                             }
                         }
@@ -257,19 +332,23 @@ struct ClashSettingsView: View {
                             reloadConfigIfRunning()
                         }
                 }
-                
+
                 Divider()
-                
+
                 SettingsRow(title: "HTTP Port", subtitle: "HTTP proxy port") {
                     TextField("7890", text: $settings.httpPort)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
                         .onChange(of: settings.httpPort) { oldValue, newValue in
-                            let filtered = newValue.filter { "0123456789".contains($0) }
+                            let filtered = newValue.filter {
+                                "0123456789".contains($0)
+                            }
                             if filtered != newValue {
                                 settings.httpPort = filtered
                             }
-                            if let port = Int(filtered), (port < 1 || port > 65535) {
+                            if let port = Int(filtered),
+                                port < 1 || port > 65535
+                            {
                                 settings.httpPort = oldValue
                             }
                         }
@@ -280,19 +359,26 @@ struct ClashSettingsView: View {
                             reloadConfigIfRunning()
                         }
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "SOCKS5 Port", subtitle: "SOCKS5 proxy port") {
+
+                SettingsRow(title: "SOCKS5 Port", subtitle: "SOCKS5 proxy port")
+                {
                     TextField("7891", text: $settings.socksPort)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
-                        .onChange(of: settings.socksPort) { oldValue, newValue in
-                            let filtered = newValue.filter { "0123456789".contains($0) }
+                        .onChange(of: settings.socksPort) {
+                            oldValue,
+                            newValue in
+                            let filtered = newValue.filter {
+                                "0123456789".contains($0)
+                            }
                             if filtered != newValue {
                                 settings.socksPort = filtered
                             }
-                            if let port = Int(filtered), (port < 1 || port > 65535) {
+                            if let port = Int(filtered),
+                                port < 1 || port > 65535
+                            {
                                 settings.socksPort = oldValue
                             }
                         }
@@ -303,24 +389,33 @@ struct ClashSettingsView: View {
                             reloadConfigIfRunning()
                         }
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "External Controller", subtitle: "RESTful API endpoint") {
-                    TextField("127.0.0.1:9090", text: $settings.externalController)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 160)
-                        .onSubmit {
-                            if settings.externalController.isEmpty {
-                                settings.externalController = "127.0.0.1:9090"
-                            }
-                            reloadConfigIfRunning()
+
+                SettingsRow(
+                    title: "External Controller",
+                    subtitle: "RESTful API endpoint"
+                ) {
+                    TextField(
+                        "127.0.0.1:9090",
+                        text: $settings.externalController
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 160)
+                    .onSubmit {
+                        if settings.externalController.isEmpty {
+                            settings.externalController = "127.0.0.1:9090"
                         }
+                        reloadConfigIfRunning()
+                    }
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Secret", subtitle: "API authentication secret") {
+
+                SettingsRow(
+                    title: "Secret",
+                    subtitle: "API authentication secret"
+                ) {
                     HStack(spacing: 8) {
                         if showSecret {
                             TextField("", text: $settings.secret)
@@ -333,7 +428,7 @@ struct ClashSettingsView: View {
                                 .frame(width: 140)
                                 .onSubmit { reloadConfigIfRunning() }
                         }
-                        
+
                         Button(action: { showSecret.toggle() }) {
                             Image(systemName: showSecret ? "eye.slash" : "eye")
                                 .foregroundStyle(.gray)
@@ -341,52 +436,67 @@ struct ClashSettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Auto Update GeoIP", subtitle: "Automatically update GeoIP database") {
-                    Toggle("", isOn: Binding(
-                        get: { settings.autoUpdateGeoIP },
-                        set: { newValue in
-                            settings.autoUpdateGeoIP = newValue
-                            reloadConfigIfRunning()
-                        }
-                    ))
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                }
-                
-                Divider()
-                
-                SettingsRow(title: "Update Interval", subtitle: "GeoIP update interval in hours") {
-                    TextField("24", value: Binding(
-                        get: { settings.geoUpdateInterval },
-                        set: { newValue in
-                            settings.geoUpdateInterval = newValue
-                            reloadConfigIfRunning()
-                        }
-                    ), format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                        .onSubmit {
-                            if settings.geoUpdateInterval <= 0 {
-                                settings.geoUpdateInterval = 24
+
+                SettingsRow(
+                    title: "Auto Update GeoIP",
+                    subtitle: "Automatically update GeoIP database"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.autoUpdateGeoIP },
+                            set: { newValue in
+                                settings.autoUpdateGeoIP = newValue
+                                reloadConfigIfRunning()
                             }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                }
+
+                Divider()
+
+                SettingsRow(
+                    title: "Update Interval",
+                    subtitle: "GeoIP update interval in hours"
+                ) {
+                    TextField(
+                        "24",
+                        value: Binding(
+                            get: { settings.geoUpdateInterval },
+                            set: { newValue in
+                                settings.geoUpdateInterval = newValue
+                                reloadConfigIfRunning()
+                            }
+                        ),
+                        format: .number
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                    .onSubmit {
+                        if settings.geoUpdateInterval <= 0 {
+                            settings.geoUpdateInterval = 24
                         }
+                    }
                 }
             }
         }
     }
 }
 
-
 struct AppearanceSettingsView: View {
     @Bindable var settings: AppSettings
-    
+
     var body: some View {
         SettingsSection(title: "Appearance", icon: "paintbrush.fill") {
             VStack(spacing: 16) {
-                SettingsRow(title: "Theme", subtitle: "Choose your preferred appearance") {
+                SettingsRow(
+                    title: "Theme",
+                    subtitle: "Choose your preferred appearance"
+                ) {
                     Picker("", selection: $settings.appearance) {
                         ForEach(AppearanceMode.allCases, id: \.self) { mode in
                             Text(mode.rawValue).tag(mode)
@@ -402,18 +512,28 @@ struct AppearanceSettingsView: View {
 
 struct AdvancedSettingsView: View {
     @Bindable var settings: AppSettings
-    
+
     var body: some View {
         SettingsSection(title: "Advanced", icon: "gearshape.2.fill") {
             VStack(spacing: 16) {
-                SettingsRow(title: "Log Level", subtitle: "Minimum log level to display") {
-                    Picker("", selection: Binding(
-                        get: { settings.logLevel },
-                        set: { newValue in
-                            settings.logLevel = newValue
-                            ClashCoreManager.shared.updateConfigViaAPI(params: ["log-level": newValue.rawValue.lowercased()])
-                        }
-                    )) {
+                SettingsRow(
+                    title: "Log Level",
+                    subtitle: "Minimum log level to display"
+                ) {
+                    Picker(
+                        "",
+                        selection: Binding(
+                            get: { settings.logLevel },
+                            set: { newValue in
+                                settings.logLevel = newValue
+                                ClashCoreManager.shared.updateConfigViaAPI(
+                                    params: [
+                                        "log-level": newValue.rawValue
+                                            .lowercased()
+                                    ])
+                            }
+                        )
+                    ) {
                         ForEach(LogLevelSetting.allCases, id: \.self) { level in
                             Text(level.rawValue).tag(level)
                         }
@@ -431,20 +551,26 @@ struct ActionsSettingsView: View {
     var geoManager = GeoIPManager.shared
     @State private var actionStatus: String = ""
     @State private var statusColor: Color = .secondary
-    
+
     var body: some View {
         SettingsSection(title: "Actions", icon: "bolt.fill") {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    ActionButton(title: "Reload Config", icon: "arrow.clockwise", color: .blue) {
+                    ActionButton(
+                        title: "Reload Config",
+                        icon: "arrow.clockwise",
+                        color: .blue
+                    ) {
                         ClashCoreManager.shared.reloadConfigViaAPI()
                         actionStatus = "Config reloaded"
                         statusColor = .blue
                     }
-                    
+
                     ActionButton(
-                        title: geoManager.isDownloading ? "Updating..." : "Update GeoIP",
-                        icon: geoManager.isDownloading ? "arrow.down.circle" : "globe",
+                        title: geoManager.isDownloading
+                            ? "Updating..." : "Update GeoIP",
+                        icon: geoManager.isDownloading
+                            ? "arrow.down.circle" : "globe",
                         color: geoManager.isDownloading ? .gray : .green
                     ) {
                         Task {
@@ -465,8 +591,12 @@ struct ActionsSettingsView: View {
                         }
                     }
                     .disabled(geoManager.isDownloading)
-                    
-                    ActionButton(title: "Flush DNS", icon: "network.badge.shield.half.filled", color: .orange) {
+
+                    ActionButton(
+                        title: "Flush DNS",
+                        icon: "network.badge.shield.half.filled",
+                        color: .orange
+                    ) {
                         Task {
                             do {
                                 try await ClashAPI.shared.flushFakeIPCache()
@@ -478,14 +608,18 @@ struct ActionsSettingsView: View {
                             }
                         }
                     }
-                    
-                    ActionButton(title: "Reset Settings", icon: "arrow.counterclockwise", color: .red) {
+
+                    ActionButton(
+                        title: "Reset Settings",
+                        icon: "arrow.counterclockwise",
+                        color: .red
+                    ) {
                         settings.resetToDefaults()
                         actionStatus = "Settings reset to defaults"
                         statusColor = .red
                     }
                 }
-                
+
                 if !actionStatus.isEmpty {
                     HStack(spacing: 6) {
                         Text(actionStatus)
@@ -499,27 +633,33 @@ struct ActionsSettingsView: View {
     }
 }
 
-
 struct CoreManagementView: View {
     private var coreManager = ClashCoreManager.shared
     @State private var showDeleteConfirm = false
-    
+
     var body: some View {
         SettingsSection(title: "Core Management", icon: "cpu") {
             VStack(spacing: 16) {
-                SettingsRow(title: "Core Status", subtitle: "Clash core running state") {
+                SettingsRow(
+                    title: "Core Status",
+                    subtitle: "Clash core running state"
+                ) {
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(coreManager.isRunning ? Color.green : Color.gray)
+                            .fill(
+                                coreManager.isRunning ? Color.green : Color.gray
+                            )
                             .frame(width: 8, height: 8)
                         Text(coreManager.isRunning ? "Running" : "Stopped")
                             .font(.system(size: 12))
-                            .foregroundStyle(coreManager.isRunning ? .green : .secondary)
+                            .foregroundStyle(
+                                coreManager.isRunning ? .green : .secondary
+                            )
                     }
                 }
-                
+
                 Divider()
-                
+
                 HStack(spacing: 12) {
                     if coreManager.isRunning {
                         Button(action: { coreManager.stopCore() }) {
@@ -535,7 +675,7 @@ struct CoreManagementView: View {
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
-                        
+
                         Button(action: { coreManager.restartCore() }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.clockwise")
@@ -559,23 +699,31 @@ struct CoreManagementView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(isCoreInstalled ? Color.green : Color.gray)
+                            .background(
+                                isCoreInstalled ? Color.green : Color.gray
+                            )
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
                         .disabled(!isCoreInstalled)
                     }
-                    
+
                     Spacer()
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Core Type", subtitle: "Select Clash core variant") {
-                    Picker("", selection: Binding(
-                        get: { coreManager.currentCoreType },
-                        set: { coreManager.selectCoreType($0) }
-                    )) {
+
+                SettingsRow(
+                    title: "Core Type",
+                    subtitle: "Select Clash core variant"
+                ) {
+                    Picker(
+                        "",
+                        selection: Binding(
+                            get: { coreManager.currentCoreType },
+                            set: { coreManager.selectCoreType($0) }
+                        )
+                    ) {
                         ForEach(ClashCoreType.allCases, id: \.self) { type in
                             Text(type.displayName).tag(type)
                         }
@@ -584,10 +732,13 @@ struct CoreManagementView: View {
                     .frame(width: 160)
                     .disabled(coreManager.isRunning)
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Installed Version", subtitle: "Currently installed core") {
+
+                SettingsRow(
+                    title: "Installed Version",
+                    subtitle: "Currently installed core"
+                ) {
                     HStack(spacing: 8) {
                         switch coreManager.coreStatus {
                         case .notInstalled:
@@ -595,9 +746,11 @@ struct CoreManagementView: View {
                                 .font(.system(size: 12))
                                 .foregroundStyle(.orange)
                         case .installed(let version):
-                            Text("\(coreManager.currentCoreType.displayName) \(version)")
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(.green)
+                            Text(
+                                "\(coreManager.currentCoreType.displayName) \(version)"
+                            )
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(.green)
                         case .downloading(let progress):
                             HStack(spacing: 6) {
                                 ProgressView()
@@ -614,9 +767,9 @@ struct CoreManagementView: View {
                         }
                     }
                 }
-                
+
                 Divider()
-                
+
                 HStack(spacing: 12) {
                     Button(action: {
                         Task {
@@ -624,19 +777,35 @@ struct CoreManagementView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: coreManager.isDownloading ? "arrow.down.circle" : (isCoreInstalled ? "arrow.clockwise" : "arrow.down.to.line"))
-                            Text(coreManager.isDownloading ? "Downloading..." : (isCoreInstalled ? "Update Core" : "Install Core"))
+                            Image(
+                                systemName: coreManager.isDownloading
+                                    ? "arrow.down.circle"
+                                    : (isCoreInstalled
+                                        ? "arrow.clockwise"
+                                        : "arrow.down.to.line")
+                            )
+                            Text(
+                                coreManager.isDownloading
+                                    ? "Downloading..."
+                                    : (isCoreInstalled
+                                        ? "Update Core" : "Install Core")
+                            )
                         }
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(coreManager.isDownloading || coreManager.isRunning ? Color.gray : Color.blue)
+                        .background(
+                            coreManager.isDownloading || coreManager.isRunning
+                                ? Color.gray : Color.blue
+                        )
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
-                    .disabled(coreManager.isDownloading || coreManager.isRunning)
-                    
+                    .disabled(
+                        coreManager.isDownloading || coreManager.isRunning
+                    )
+
                     if isCoreInstalled {
                         Button(action: {
                             showDeleteConfirm = true
@@ -649,7 +818,9 @@ struct CoreManagementView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(coreManager.isRunning ? Color.gray : Color.red)
+                            .background(
+                                coreManager.isRunning ? Color.gray : Color.red
+                            )
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
@@ -660,17 +831,19 @@ struct CoreManagementView: View {
                                 try? coreManager.deleteCore()
                             }
                         } message: {
-                            Text("Are you sure you want to delete the Clash core?")
+                            Text(
+                                "Are you sure you want to delete the Clash core?"
+                            )
                         }
                     }
-                    
+
                     Spacer()
                 }
-                
+
             }
         }
     }
-    
+
     private var isCoreInstalled: Bool {
         if case .installed = coreManager.coreStatus {
             return true
@@ -687,36 +860,51 @@ struct ServiceModeSettingsView: View {
     @State private var isUpdating = false
     @State private var showInstallError = false
     @State private var installErrorMessage = ""
-    
+
     init(settings: AppSettings) {
         self.settings = settings
     }
-    
+
     var body: some View {
         SettingsSection(title: "Service Mode", icon: "shield.checkered") {
             VStack(spacing: 16) {
-                SettingsRow(title: "Enable Service Mode", subtitle: "Run Clash core with root privileges for TUN mode") {
+                SettingsRow(
+                    title: "Enable Service Mode",
+                    subtitle: "Run Clash core with root privileges for TUN mode"
+                ) {
                     Toggle("", isOn: $settings.serviceMode)
                         .toggleStyle(.switch)
                         .labelsHidden()
                         .disabled(!helperManager.isHelperInstalled)
                 }
-                
+
                 Divider()
-                
-                SettingsRow(title: "Helper Status", subtitle: "Privileged helper for system integration") {
+
+                SettingsRow(
+                    title: "Helper Status",
+                    subtitle: "Privileged helper for system integration"
+                ) {
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(helperManager.isHelperInstalled ? (helperManager.helperNeedsUpdate ? Color.orange : Color.green) : Color.orange)
+                            .fill(
+                                helperManager.isHelperInstalled
+                                    ? (helperManager.helperNeedsUpdate
+                                        ? Color.orange : Color.green)
+                                    : Color.orange
+                            )
                             .frame(width: 8, height: 8)
                         if helperManager.isHelperInstalled {
                             if helperManager.helperNeedsUpdate {
-                                Text("v\(helperManager.helperVersion) → v\(helperManager.embeddedHelperVersion)")
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .foregroundStyle(.orange)
+                                Text(
+                                    "v\(helperManager.helperVersion) → v\(helperManager.embeddedHelperVersion)"
+                                )
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(.orange)
                             } else {
                                 Text("v\(helperManager.helperVersion)")
-                                    .font(.system(size: 12, design: .monospaced))
+                                    .font(
+                                        .system(size: 12, design: .monospaced)
+                                    )
                                     .foregroundStyle(.green)
                             }
                         } else {
@@ -726,20 +914,23 @@ struct ServiceModeSettingsView: View {
                         }
                     }
                 }
-                
+
                 Divider()
-                
+
                 HStack(spacing: 12) {
                     if !helperManager.isHelperInstalled {
                         Button(action: installHelper) {
                             HStack(spacing: 6) {
-                                    if isInstalling {
+                                if isInstalling {
                                     ProgressView()
                                         .controlSize(.small)
                                 } else {
                                     Image(systemName: "plus.circle")
                                 }
-                                Text(isInstalling ? "Installing..." : "Install Helper")
+                                Text(
+                                    isInstalling
+                                        ? "Installing..." : "Install Helper"
+                                )
                             }
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.white)
@@ -760,19 +951,24 @@ struct ServiceModeSettingsView: View {
                                     } else {
                                         Image(systemName: "arrow.clockwise")
                                     }
-                                    Text(isUpdating ? "Updating..." : "Update Helper")
+                                    Text(
+                                        isUpdating
+                                            ? "Updating..." : "Update Helper"
+                                    )
                                 }
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(isUpdating ? Color.gray : Color.blue)
+                                .background(
+                                    isUpdating ? Color.gray : Color.blue
+                                )
                                 .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
                             .disabled(isUpdating)
                         }
-                        
+
                         Button(action: uninstallHelper) {
                             HStack(spacing: 6) {
                                 if isUninstalling {
@@ -781,7 +977,10 @@ struct ServiceModeSettingsView: View {
                                 } else {
                                     Image(systemName: "trash")
                                 }
-                                Text(isUninstalling ? "Uninstalling..." : "Uninstall Helper")
+                                Text(
+                                    isUninstalling
+                                        ? "Uninstalling..." : "Uninstall Helper"
+                                )
                             }
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.white)
@@ -793,17 +992,19 @@ struct ServiceModeSettingsView: View {
                         .buttonStyle(.plain)
                         .disabled(isUninstalling)
                     }
-                    
+
                     Spacer()
                 }
-                
+
                 if !helperManager.isHelperInstalled {
                     HStack {
                         Image(systemName: "info.circle")
                             .foregroundStyle(.secondary)
-                        Text("Service mode requires installing a privileged helper. Administrator password will be required.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Service mode requires installing a privileged helper. Administrator password will be required."
+                        )
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                         Spacer()
                     }
                 }
@@ -815,10 +1016,10 @@ struct ServiceModeSettingsView: View {
             Text(installErrorMessage)
         }
     }
-    
+
     private func installHelper() {
         isInstalling = true
-        
+
         helperManager.installHelper { success, error in
             isInstalling = false
             if !success {
@@ -827,11 +1028,11 @@ struct ServiceModeSettingsView: View {
             }
         }
     }
-    
+
     private func uninstallHelper() {
         isUninstalling = true
         settings.serviceMode = false
-        
+
         helperManager.uninstallHelper { success, error in
             isUninstalling = false
             if !success {
@@ -840,10 +1041,10 @@ struct ServiceModeSettingsView: View {
             }
         }
     }
-    
+
     private func updateHelper() {
         isUpdating = true
-        
+
         helperManager.updateHelper { success, error in
             isUpdating = false
             if !success {
@@ -856,7 +1057,7 @@ struct ServiceModeSettingsView: View {
 
 struct AboutSettingsView: View {
     var coreManager = ClashCoreManager.shared
-    
+
     var body: some View {
         SettingsSection(title: "About", icon: "info.circle.fill") {
             VStack(spacing: 12) {
@@ -865,12 +1066,14 @@ struct AboutSettingsView: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")"
+                    )
+                    .foregroundStyle(.secondary)
                 }
-                
+
                 Divider().background(Color.gray.opacity(0.3))
-                
+
                 HStack {
                     Text("Clash Core")
                         .foregroundStyle(.primary)
@@ -879,11 +1082,14 @@ struct AboutSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                
                 Divider().background(Color.gray.opacity(0.3))
-                
+
                 HStack(spacing: 16) {
-                    Link(destination: URL(string: "https://github.com/Dreamacro/clash")!) {
+                    Link(
+                        destination: URL(
+                            string: "https://github.com/Dreamacro/clash"
+                        )!
+                    ) {
                         HStack(spacing: 6) {
                             Image(systemName: "link")
                             Text("GitHub")
@@ -891,7 +1097,7 @@ struct AboutSettingsView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(.blue)
                     }
-                    
+
                     Link(destination: URL(string: "https://clash.wiki")!) {
                         HStack(spacing: 6) {
                             Image(systemName: "book")
@@ -900,14 +1106,14 @@ struct AboutSettingsView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(.blue)
                     }
-                    
+
                     Spacer()
                 }
                 .padding(.top, 4)
             }
         }
     }
-    
+
     private var coreVersionText: String {
         if case .installed(let version) = coreManager.coreStatus {
             return "\(coreManager.currentCoreType.displayName) \(version)"
@@ -915,7 +1121,6 @@ struct AboutSettingsView: View {
         return "Not Installed"
     }
 }
-
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {

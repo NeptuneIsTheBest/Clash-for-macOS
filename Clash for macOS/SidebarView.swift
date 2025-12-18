@@ -9,9 +9,9 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     case connections = "Connections"
     case logs = "Logs"
     case settings = "Settings"
-    
+
     var id: String { rawValue }
-    
+
     var icon: String {
         switch self {
         case .general: return "house.fill"
@@ -30,7 +30,7 @@ struct SidebarView: View {
     @Binding var selection: NavigationItem
     private var settings: AppSettings { AppSettings.shared }
     private var dataService: ClashDataService { ClashDataService.shared }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -42,7 +42,7 @@ struct SidebarView: View {
             }
             .padding()
             .padding(.top, 10)
-            
+
             List(NavigationItem.allCases, selection: $selection) { item in
                 Label(item.rawValue, systemImage: item.icon)
                     .tag(item)
@@ -83,4 +83,3 @@ struct SidebarView: View {
 #Preview {
     SidebarView(selection: .constant(.general))
 }
-

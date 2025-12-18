@@ -6,34 +6,38 @@ struct GeneralView: View {
     private var proxyManager = SystemProxyManager.shared
     private var helperManager = HelperManager.shared
     private var dataService: ClashDataService { ClashDataService.shared }
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 SettingsHeader(title: "General")
-                
+
                 SettingsSection(title: "Status", icon: "bolt.fill") {
                     HStack(spacing: 20) {
                         StatusCard(
                             title: "System Proxy",
-                            value: settings.systemProxy ? "Enabled" : "Disabled",
+                            value: settings.systemProxy
+                                ? "Enabled" : "Disabled",
                             icon: "network",
                             color: settings.systemProxy ? .green : .gray
                         ) {
                             settings.systemProxy.toggle()
-                            proxyManager.toggleSystemProxy(enabled: settings.systemProxy)
+                            proxyManager.toggleSystemProxy(
+                                enabled: settings.systemProxy
+                            )
                         }
-                        
+
                         StatusCard(
                             title: "TUN Mode",
                             value: settings.tunMode ? "Enabled" : "Disabled",
                             icon: "shield.fill",
                             color: settings.tunMode ? .blue : .gray,
-                            isDisabled: !helperManager.isHelperInstalled || !settings.serviceMode
+                            isDisabled: !helperManager.isHelperInstalled
+                                || !settings.serviceMode
                         ) {
                             settings.tunMode.toggle()
                         }
-                        
+
                         StatusCard(
                             title: "Allow LAN",
                             value: settings.allowLAN ? "Enabled" : "Disabled",
@@ -44,7 +48,7 @@ struct GeneralView: View {
                         }
                     }
                 }
-                
+
                 SettingsSection(title: "Traffic", icon: "arrow.up.arrow.down") {
                     HStack(spacing: 20) {
                         TrafficCard(
@@ -53,21 +57,21 @@ struct GeneralView: View {
                             icon: "arrow.up.circle.fill",
                             color: .green
                         )
-                        
+
                         TrafficCard(
                             title: "Download",
                             speed: formatSpeed(dataService.downloadSpeed),
                             icon: "arrow.down.circle.fill",
                             color: .blue
                         )
-                        
+
                         TrafficCard(
                             title: "Connections",
                             speed: "\(dataService.activeConnections)",
                             icon: "link",
                             color: .purple
                         )
-                        
+
                         TrafficCard(
                             title: "Memory",
                             speed: ByteUtils.format(dataService.memoryUsage),
@@ -76,7 +80,7 @@ struct GeneralView: View {
                         )
                     }
                 }
-                
+
                 SettingsSection(title: "Quick Info", icon: "info.circle") {
                     VStack(spacing: 12) {
                         InfoRow(label: "Mixed Port", value: settings.mixedPort)
@@ -85,18 +89,21 @@ struct GeneralView: View {
                         Divider()
                         InfoRow(label: "SOCKS5 Port", value: settings.socksPort)
                         Divider()
-                        InfoRow(label: "External Controller", value: settings.externalController)
+                        InfoRow(
+                            label: "External Controller",
+                            value: settings.externalController
+                        )
                         Divider()
                         InfoRow(label: "Clash Core", value: coreVersionText)
                     }
                 }
-                
+
                 Spacer()
             }
             .padding(30)
         }
     }
-    
+
     private var coreVersionText: String {
         if case .installed(let version) = coreManager.coreStatus {
             return "\(coreManager.currentCoreType.displayName) \(version)"
@@ -112,22 +119,22 @@ struct StatusCard: View {
     let color: Color
     var isDisabled: Bool = false
     let action: () -> Void
-    
+
     private var displayColor: Color {
         isDisabled ? .gray : color
     }
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 28))
                     .foregroundStyle(displayColor)
-                
+
                 Text(title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                
+
                 Text(isDisabled ? "Unavailable" : value)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(displayColor)
@@ -147,17 +154,17 @@ struct TrafficCard: View {
     let speed: String
     let icon: String
     let color: Color
-    
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 24))
                 .foregroundStyle(color)
-            
+
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            
+
             Text(speed)
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.primary)
@@ -172,7 +179,7 @@ struct TrafficCard: View {
 struct InfoRow: View {
     let label: String
     let value: String
-    
+
     var body: some View {
         HStack {
             Text(label)
@@ -189,4 +196,3 @@ struct InfoRow: View {
     GeneralView()
         .frame(width: 800, height: 600)
 }
-

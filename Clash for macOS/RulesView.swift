@@ -11,36 +11,42 @@ struct ClashRule: Identifiable, Hashable {
 @Observable
 class RulesManager {
     static let shared = RulesManager()
-    
+
     var rules: [ClashRule] = []
     var isLoading = false
     var errorMessage: String?
-    
+
     private init() {}
-    
+
     func fetchRules() async {
         isLoading = true
         errorMessage = nil
-        
+
         let settings = AppSettings.shared
         let baseURL = "http://\(settings.externalController)"
-        
+
         guard let url = URL(string: "\(baseURL)/rules") else {
             errorMessage = "Invalid URL"
             isLoading = false
             return
         }
-        
+
         var request = URLRequest(url: url)
         request.timeoutInterval = 5
         if !settings.secret.isEmpty {
-            request.setValue("Bearer \(settings.secret)", forHTTPHeaderField: "Authorization")
+            request.setValue(
+                "Bearer \(settings.secret)",
+                forHTTPHeaderField: "Authorization"
+            )
         }
-        
+
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(RulesResponse.self, from: data)
-            
+            let response = try JSONDecoder().decode(
+                RulesResponse.self,
+                from: data
+            )
+
             rules = response.rules.enumerated().map { index, rule in
                 ClashRule(
                     type: rule.type,
@@ -59,7 +65,7 @@ class RulesManager {
 
 struct RulesResponse: Codable {
     let rules: [RuleItem]
-    
+
     struct RuleItem: Codable {
         let type: String
         let payload: String
@@ -71,39 +77,45 @@ struct RulesView: View {
     @Bindable private var rulesManager = RulesManager.shared
     @State private var searchText = ""
     @State private var selectedType: String? = nil
-    
+
     var filteredRules: [ClashRule] {
         var result = rulesManager.rules
-        
+
         if let type = selectedType {
             result = result.filter { $0.type == type }
         }
-        
+
         if !searchText.isEmpty {
             result = result.filter {
-                $0.payload.localizedCaseInsensitiveContains(searchText) ||
-                $0.proxy.localizedCaseInsensitiveContains(searchText) ||
-                $0.type.localizedCaseInsensitiveContains(searchText)
+                $0.payload.localizedCaseInsensitiveContains(searchText)
+                    || $0.proxy.localizedCaseInsensitiveContains(searchText)
+                    || $0.type.localizedCaseInsensitiveContains(searchText)
             }
         }
-        
+
         return result
     }
-    
+
     var ruleTypes: [String] {
         Array(Set(rulesManager.rules.map { $0.type })).sorted()
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             VStack {
-                SettingsHeader(title: "Rules", subtitle: "\(rulesManager.rules.count) rules loaded") {
-                    
+                SettingsHeader(
+                    title: "Rules",
+                    subtitle: "\(rulesManager.rules.count) rules loaded"
+                ) {
+
                 }
-                
+
                 HStack(spacing: 12) {
-                    SearchField(placeholder: "Search rules...", text: $searchText)
-                    
+                    SearchField(
+                        placeholder: "Search rules...",
+                        text: $searchText
+                    )
+
                     Picker("Type", selection: $selectedType) {
                         Text("All Types").tag(nil as String?)
                         ForEach(ruleTypes, id: \.self) { type in
@@ -116,7 +128,7 @@ struct RulesView: View {
             .padding(.horizontal, 30)
             .padding(.top, 30)
             .padding(.bottom, 15)
-            
+
             if rulesManager.isLoading {
                 Spacer()
                 ProgressView()
@@ -182,7 +194,7 @@ struct RulesView: View {
 
 struct RulesTableView: View {
     let rules: [ClashRule]
-    
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -201,7 +213,7 @@ struct RulesTableView: View {
                 .padding(.horizontal, 15)
                 .padding(.vertical, 10)
                 .background(Color(nsColor: .controlBackgroundColor))
-                
+
                 ForEach(rules) { rule in
                     RuleRow(rule: rule)
                 }
@@ -215,7 +227,7 @@ struct RulesTableView: View {
 struct RuleRow: View {
     let rule: ClashRule
     @State private var isHovered = false
-    
+
     var typeColor: Color {
         switch rule.type {
         case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD":
@@ -234,22 +246,22 @@ struct RuleRow: View {
             return .secondary
         }
     }
-    
+
     var body: some View {
         HStack(spacing: 0) {
             Text("\(rule.index)")
                 .frame(width: 50, alignment: .leading)
                 .foregroundStyle(.secondary)
-            
+
             Text(rule.type)
                 .frame(width: 120, alignment: .leading)
                 .foregroundStyle(typeColor)
-            
+
             Text(rule.payload)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(1)
                 .help(rule.payload)
-            
+
             Text(rule.proxy)
                 .frame(width: 150, alignment: .leading)
                 .foregroundStyle(.blue)

@@ -4,16 +4,16 @@ import Observation
 enum ClashCoreType: String, CaseIterable, Codable {
     case meta = "Meta"
     case rust = "Rust"
-    
+
     var displayName: String { rawValue }
-    
+
     var repoPath: String {
         switch self {
         case .meta: return "MetaCubeX/mihomo"
         case .rust: return "Watfaq/clash-rs"
         }
     }
-    
+
     var executableName: String {
         switch self {
         case .meta: return "clash-meta"
@@ -32,96 +32,120 @@ enum CoreStatus {
 @Observable
 class ClashCoreManager: CoreHealthMonitorDelegate {
     static let shared = ClashCoreManager()
-    
+
     var currentCoreType: ClashCoreType = .meta
     var coreStatus: CoreStatus = .notInstalled
     var isRunning = false
-    
+
     private var installedVersions: [ClashCoreType: String] = [:]
     private var coreProcess: Process?
-    
+
     private let healthMonitor = CoreHealthMonitor()
     private let downloader = CoreDownloader.shared
-    
+
     private var isStarting = false
     private let startLock = NSLock()
-    
+
     var latestVersion: String = ""
-    
+
     var isDownloading: Bool {
         downloader.isDownloading
     }
-    
+
     var downloadProgress: Double {
         if case .downloading(let progress) = downloader.status {
             return progress
         }
         return 0
     }
-    
+
     private let fileManager = FileManager.default
-    
+
     var appSupportDirectory: URL {
-        let paths = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupport = paths[0].appendingPathComponent("Clash for macOS", isDirectory: true)
-        try? fileManager.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        let paths = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        )
+        let appSupport = paths[0].appendingPathComponent(
+            "Clash for macOS",
+            isDirectory: true
+        )
+        try? fileManager.createDirectory(
+            at: appSupport,
+            withIntermediateDirectories: true
+        )
         return appSupport
     }
-    
+
     var coreDirectory: URL {
-        let dir = appSupportDirectory.appendingPathComponent("bin", isDirectory: true)
-        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dir = appSupportDirectory.appendingPathComponent(
+            "bin",
+            isDirectory: true
+        )
+        try? fileManager.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true
+        )
         return dir
     }
-    
+
     var corePath: URL {
         coreDirectory.appendingPathComponent(currentCoreType.executableName)
     }
-    
+
     var configDirectory: URL {
-        let dir = appSupportDirectory.appendingPathComponent("config", isDirectory: true)
-        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dir = appSupportDirectory.appendingPathComponent(
+            "config",
+            isDirectory: true
+        )
+        try? fileManager.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true
+        )
         return dir
     }
-    
+
     var configPath: URL {
         configDirectory.appendingPathComponent("config.yaml")
     }
-    
+
     private var useServiceMode: Bool {
         HelperManager.shared.isHelperInstalled && AppSettings.shared.serviceMode
     }
-    
+
     private init() {
         healthMonitor.delegate = self
         loadSettings()
         checkInstalledCore()
         checkRunningStatus()
     }
-    
+
     private func loadSettings() {
         let defaults = UserDefaults.standard
         if let typeRaw = defaults.string(forKey: "clashCoreType"),
-           let type = ClashCoreType(rawValue: typeRaw) {
+            let type = ClashCoreType(rawValue: typeRaw)
+        {
             currentCoreType = type
         }
-        
+
         for type in ClashCoreType.allCases {
-            if let ver = defaults.string(forKey: "installedVersion_\(type.rawValue)") {
+            if let ver = defaults.string(
+                forKey: "installedVersion_\(type.rawValue)"
+            ) {
                 installedVersions[type] = ver
             }
         }
     }
-    
+
     private func saveSettings() {
         let defaults = UserDefaults.standard
         defaults.set(currentCoreType.rawValue, forKey: "clashCoreType")
-        
+
         for (type, version) in installedVersions {
             defaults.set(version, forKey: "installedVersion_\(type.rawValue)")
         }
     }
-    
+
     func checkInstalledCore() {
         if fileManager.fileExists(atPath: corePath.path) {
             let version = installedVersions[currentCoreType] ?? "Unknown"
@@ -130,18 +154,21 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
             coreStatus = .notInstalled
         }
     }
-    
+
     func selectCoreType(_ type: ClashCoreType) {
         currentCoreType = type
         saveSettings()
         checkInstalledCore()
     }
-    
+
     func downloadCore() async {
         coreStatus = .downloading(progress: 0.1)
-        
-        let result = await downloader.download(coreType: currentCoreType, to: corePath)
-        
+
+        let result = await downloader.download(
+            coreType: currentCoreType,
+            to: corePath
+        )
+
         if result.success, let version = result.version {
             installedVersions[currentCoreType] = version
             latestVersion = version
@@ -150,10 +177,10 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         } else if case .failed(let error) = downloader.status {
             coreStatus = .error(error)
         }
-        
+
         downloader.reset()
     }
-    
+
     func deleteCore() throws {
         stopCore()
         if fileManager.fileExists(atPath: corePath.path) {
@@ -163,27 +190,27 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         saveSettings()
         coreStatus = .notInstalled
     }
-    
+
     func startCore() {
         startLock.lock()
         defer { startLock.unlock() }
-        
+
         guard !isRunning && !isStarting else { return }
         guard fileManager.fileExists(atPath: corePath.path) else { return }
-        
+
         isStarting = true
         healthMonitor.setManualStop(false)
         ConfigurationManager.shared.syncConfiguration()
-        
+
         killOrphanClashProcesses()
-        
+
         if useServiceMode {
             startCoreWithHelper()
         } else {
             startCoreDirectly()
         }
     }
-    
+
     private func killOrphanClashProcesses() {
         for coreType in ClashCoreType.allCases {
             let process = Process()
@@ -194,7 +221,7 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         }
         Thread.sleep(forTimeInterval: 0.1)
     }
-    
+
     private func startCoreWithHelper() {
         HelperManager.shared.startClashCore(
             executablePath: corePath.path,
@@ -209,30 +236,32 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
                 self?.healthMonitor.resetRestartAttempts()
                 self?.healthMonitor.startMonitoring()
             } else {
-                print("Failed to start core via helper: (error ?? \"Unknown error\")")
+                print(
+                    "Failed to start core via helper: (error ?? \"Unknown error\")"
+                )
                 self?.isRunning = false
             }
         }
     }
-    
+
     private func startCoreDirectly() {
         if let existingProcess = coreProcess, existingProcess.isRunning {
             isStarting = false
             isRunning = true
             return
         }
-        
+
         coreProcess = nil
-        
+
         let process = Process()
         process.executableURL = corePath
         process.arguments = ["-d", configDirectory.path]
         process.currentDirectoryURL = configDirectory
-        
+
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
-        
+
         process.terminationHandler = { [weak self] terminatedProcess in
             DispatchQueue.main.async {
                 guard let self = self else { return }
@@ -242,7 +271,7 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
                 }
             }
         }
-        
+
         do {
             try process.run()
             coreProcess = process
@@ -257,30 +286,32 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
             isStarting = false
         }
     }
-    
+
     func stopCore() {
         healthMonitor.setManualStop(true)
         healthMonitor.stopMonitoring()
-        
+
         guard isRunning else { return }
-        
+
         if useServiceMode {
             stopCoreWithHelper()
         } else {
             stopCoreDirectly()
         }
     }
-    
+
     private func stopCoreWithHelper() {
         HelperManager.shared.stopClashCore { [weak self] success, error in
             if success {
                 self?.isRunning = false
             } else {
-                print("Failed to stop core via helper: \(error ?? "Unknown error")")
+                print(
+                    "Failed to stop core via helper: \(error ?? "Unknown error")"
+                )
             }
         }
     }
-    
+
     private func stopCoreDirectly() {
         guard let process = coreProcess else { return }
         process.terminate()
@@ -288,11 +319,11 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         healthMonitor.setProcess(nil)
         isRunning = false
     }
-    
+
     func restartCore() {
         healthMonitor.setManualStop(false)
         healthMonitor.stopMonitoring()
-        
+
         if useServiceMode {
             HelperManager.shared.stopClashCore { [weak self] _, _ in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -308,25 +339,29 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
                 coreProcess = nil
             }
             isRunning = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                [weak self] in
                 Task { @MainActor in
                     self?.startCore()
                 }
             }
         }
     }
-    
+
     func reloadConfigViaAPI() {
         guard isRunning else { return }
         Task {
             do {
-                try await ClashAPI.shared.reloadConfigs(force: true, path: configPath.path)
+                try await ClashAPI.shared.reloadConfigs(
+                    force: true,
+                    path: configPath.path
+                )
             } catch {
                 print("Failed to reload config via API: \(error)")
             }
         }
     }
-    
+
     func updateConfigViaAPI(params: [String: Any]) {
         guard isRunning else { return }
         Task {
@@ -337,7 +372,7 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
             }
         }
     }
-    
+
     func checkRunningStatus() {
         if useServiceMode {
             HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
@@ -349,19 +384,22 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
             isRunning = coreProcess?.isRunning ?? false
         }
     }
-    
+
     func setAutoRestart(_ enabled: Bool) {
         healthMonitor.setAutoRestart(enabled)
     }
-    
+
     func resetRestartAttempts() {
         healthMonitor.resetRestartAttempts()
     }
-    
-    func healthMonitor(_ monitor: CoreHealthMonitor, didDetectStateChange isRunning: Bool) {
+
+    func healthMonitor(
+        _ monitor: CoreHealthMonitor,
+        didDetectStateChange isRunning: Bool
+    ) {
         self.isRunning = isRunning
     }
-    
+
     func healthMonitorRequestsRestart(_ monitor: CoreHealthMonitor) {
         startCore()
     }

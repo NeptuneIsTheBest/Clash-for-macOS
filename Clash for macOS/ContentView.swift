@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @Bindable private var navigationManager = NavigationManager.shared
     private var dataService: ClashDataService { ClashDataService.shared }
-    
+
     var body: some View {
         NavigationSplitView {
             SidebarView(selection: $navigationManager.selection)
@@ -41,4 +41,3 @@ struct ContentView: View {
 #Preview {
     ContentView()
 }
-

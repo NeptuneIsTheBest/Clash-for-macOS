@@ -6,7 +6,7 @@ struct ProfilesView: View {
     @State private var showFileImporter = false
     @State private var editingProfile: Profile?
     @Bindable private var profileManager = ProfileManager.shared
-    
+
     var body: some View {
         VStack(spacing: 20) {
             SettingsHeader(title: "Profiles") {
@@ -37,12 +37,12 @@ struct ProfilesView: View {
             }
             .padding(.top, 30)
             .padding(.horizontal, 30)
-            
+
             SettingsSection(title: "Import Profile", icon: "link") {
                 HStack(spacing: 12) {
                     TextField("Import URL", text: $importURL)
                         .textFieldStyle(.roundedBorder)
-                    
+
                     if !importURL.isEmpty {
                         Button(action: { importURL = "" }) {
                             Image(systemName: "xmark.circle.fill")
@@ -50,10 +50,12 @@ struct ProfilesView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    
+
                     Button(action: {
                         Task {
-                            let success = await profileManager.downloadProfile(from: importURL)
+                            let success = await profileManager.downloadProfile(
+                                from: importURL
+                            )
                             if success {
                                 importURL = ""
                             }
@@ -78,8 +80,11 @@ struct ProfilesView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(importURL.isEmpty || profileManager.downloadStatus == .downloading)
-                    
+                    .disabled(
+                        importURL.isEmpty
+                            || profileManager.downloadStatus == .downloading
+                    )
+
                     Button(action: { showFileImporter = true }) {
                         Image(systemName: "doc.badge.plus")
                             .font(.system(size: 16))
@@ -93,13 +98,14 @@ struct ProfilesView: View {
                 }
             }
             .padding(.horizontal, 30)
-            
+
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(profileManager.profiles) { profile in
                         ProfileRow(
                             profile: profile,
-                            isSelected: profileManager.selectedProfileId == profile.id,
+                            isSelected: profileManager.selectedProfileId
+                                == profile.id,
                             onUpdate: {
                                 Task {
                                     await profileManager.updateProfile(profile)
@@ -137,7 +143,9 @@ struct ProfilesView: View {
             }
         }
         .sheet(item: $editingProfile) { profile in
-            if let index = profileManager.profiles.firstIndex(where: { $0.id == profile.id }) {
+            if let index = profileManager.profiles.firstIndex(where: {
+                $0.id == profile.id
+            }) {
                 ProfileEditorView(
                     profile: $profileManager.profiles[index],
                     isPresented: Binding(
@@ -148,10 +156,8 @@ struct ProfilesView: View {
             }
         }
     }
-    
+
 }
-
-
 
 struct ProfileRow: View {
     let profile: Profile
@@ -159,14 +165,17 @@ struct ProfileRow: View {
     var onUpdate: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
-    
+
     var body: some View {
         HStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .strokeBorder(isSelected ? Color.green : Color.gray.opacity(0.5), lineWidth: 2)
+                    .strokeBorder(
+                        isSelected ? Color.green : Color.gray.opacity(0.5),
+                        lineWidth: 2
+                    )
                     .frame(width: 20, height: 20)
-                
+
                 if isSelected {
                     Circle()
                         .fill(Color.green)
@@ -174,22 +183,31 @@ struct ProfileRow: View {
                 }
             }
             .padding(.trailing, 4)
-            
+
             ZStack {
                 Circle()
-                    .fill(profile.type == .local ? Color.orange.opacity(0.2) : Color.blue.opacity(0.2))
+                    .fill(
+                        profile.type == .local
+                            ? Color.orange.opacity(0.2)
+                            : Color.blue.opacity(0.2)
+                    )
                     .frame(width: 48, height: 48)
-                
-                Image(systemName: profile.type == .local ? "doc.text.fill" : "globe")
-                    .font(.system(size: 20))
-                    .foregroundStyle(profile.type == .local ? Color.orange : Color.blue)
+
+                Image(
+                    systemName: profile.type == .local
+                        ? "doc.text.fill" : "globe"
+                )
+                .font(.system(size: 20))
+                .foregroundStyle(
+                    profile.type == .local ? Color.orange : Color.blue
+                )
             }
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(profile.name)
                     .font(.headline)
                     .foregroundStyle(.primary)
-                
+
                 HStack(spacing: 8) {
                     if let url = profile.url {
                         Text(url)
@@ -201,14 +219,16 @@ struct ProfileRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.gray)
-                
-                Text("Updated: \(DateFormatters.mediumDateTime.string(from: profile.lastUpdated))")
-                    .font(.caption2)
-                    .foregroundStyle(.gray.opacity(0.8))
+
+                Text(
+                    "Updated: \(DateFormatters.mediumDateTime.string(from: profile.lastUpdated))"
+                )
+                .font(.caption2)
+                .foregroundStyle(.gray.opacity(0.8))
             }
-            
+
             Spacer()
-            
+
             HStack(spacing: 20) {
                 if profile.type == .remote {
                     VStack(alignment: .trailing, spacing: 2) {
@@ -221,7 +241,7 @@ struct ProfileRow: View {
                             .foregroundStyle(.gray)
                     }
                 }
-                
+
                 if profile.type == .remote {
                     Button(action: onUpdate) {
                         Image(systemName: "arrow.triangle.2.circlepath")
@@ -233,7 +253,7 @@ struct ProfileRow: View {
                     .buttonStyle(.plain)
                     .help("Update")
                 }
-                
+
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
                         .foregroundStyle(.gray)
@@ -248,11 +268,18 @@ struct ProfileRow: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isSelected ? Color.green.opacity(0.05) : Color(nsColor: .controlBackgroundColor))
+                .fill(
+                    isSelected
+                        ? Color.green.opacity(0.05)
+                        : Color(nsColor: .controlBackgroundColor)
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)
+                .stroke(
+                    isSelected ? Color.green.opacity(0.3) : Color.clear,
+                    lineWidth: 1
+                )
         )
         .contextMenu {
             if profile.type == .remote {

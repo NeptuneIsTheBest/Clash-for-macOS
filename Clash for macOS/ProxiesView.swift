@@ -1,5 +1,5 @@
-import SwiftUI
 import Observation
+import SwiftUI
 import Yams
 
 @Observable
@@ -10,7 +10,7 @@ class ProxiesViewModel {
     var isLoading = false
     var delays: [String: Int] = [:]
     var testingProxies: Set<String> = []
-    
+
     struct ProxyGroup: Identifiable {
         var id: String { name }
         let name: String
@@ -18,11 +18,11 @@ class ProxiesViewModel {
         let now: String?
         let all: [String]
     }
-    
+
     func loadProxies() async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             let proxies = try await ClashAPI.shared.getProxies()
             await MainActor.run {
@@ -30,10 +30,19 @@ class ProxiesViewModel {
                 self.proxyGroups = proxies.values
                     .filter { isProxyGroup($0.type) }
                     .sorted { $0.name < $1.name }
-                    .map { ProxyGroup(name: $0.name, type: $0.type, now: $0.now, all: $0.all ?? []) }
-                
+                    .map {
+                        ProxyGroup(
+                            name: $0.name,
+                            type: $0.type,
+                            now: $0.now,
+                            all: $0.all ?? []
+                        )
+                    }
+
                 for (name, node) in proxies {
-                    if let history = node.history, let last = history.last, last.delay > 0 {
+                    if let history = node.history, let last = history.last,
+                        last.delay > 0
+                    {
                         self.delays[name] = last.delay
                     }
                 }
@@ -42,7 +51,7 @@ class ProxiesViewModel {
             print("Failed to load proxies: \(error)")
         }
     }
-    
+
     func loadMode() async {
         do {
             let configs = try await ClashAPI.shared.getConfigs()
@@ -55,10 +64,12 @@ class ProxiesViewModel {
             print("Failed to load mode: \(error)")
         }
     }
-    
+
     func setMode(_ mode: String) async {
         do {
-            try await ClashAPI.shared.updateConfigs(params: ["mode": mode.lowercased()])
+            try await ClashAPI.shared.updateConfigs(params: [
+                "mode": mode.lowercased()
+            ])
             await MainActor.run {
                 self.proxyMode = mode.lowercased()
             }
@@ -67,36 +78,40 @@ class ProxiesViewModel {
             print("Failed to set mode: \(error)")
         }
     }
-    
+
     private func updateConfigFile(mode: String) {
         let configPath = ClashCoreManager.shared.configPath
         guard FileManager.default.fileExists(atPath: configPath.path),
-              let content = try? String(contentsOf: configPath, encoding: .utf8),
-              var config = try? Yams.load(yaml: content) as? [String: Any] else {
+            let content = try? String(contentsOf: configPath, encoding: .utf8),
+            var config = try? Yams.load(yaml: content) as? [String: Any]
+        else {
             return
         }
-        
+
         config["mode"] = mode
-        
+
         if let result = try? Yams.dump(object: config, allowUnicode: true) {
             try? result.write(to: configPath, atomically: true, encoding: .utf8)
         }
     }
-    
+
     func selectProxy(group: String, proxy: String) async {
         do {
-            try await ClashAPI.shared.selectProxy(selectorName: group, proxyName: proxy)
+            try await ClashAPI.shared.selectProxy(
+                selectorName: group,
+                proxyName: proxy
+            )
             await loadProxies()
         } catch {
             print("Failed to select proxy: \(error)")
         }
     }
-    
+
     func testDelay(proxyName: String) async {
         _ = await MainActor.run {
             testingProxies.insert(proxyName)
         }
-        
+
         do {
             let delay = try await ClashAPI.shared.getProxyDelay(name: proxyName)
             await MainActor.run {
@@ -110,18 +125,21 @@ class ProxiesViewModel {
             }
         }
     }
-    
+
     func testGroupDelay(groupName: String) async {
-        guard let group = proxyGroups.first(where: { $0.name == groupName }) else { return }
-        
+        guard let group = proxyGroups.first(where: { $0.name == groupName })
+        else { return }
+
         await MainActor.run {
             for proxy in group.all {
                 testingProxies.insert(proxy)
             }
         }
-        
+
         do {
-            let delays = try await ClashAPI.shared.getGroupDelay(name: groupName)
+            let delays = try await ClashAPI.shared.getGroupDelay(
+                name: groupName
+            )
             await MainActor.run {
                 for (name, delay) in delays {
                     self.delays[name] = delay
@@ -138,17 +156,19 @@ class ProxiesViewModel {
             }
         }
     }
-    
+
     private func isProxyGroup(_ type: String) -> Bool {
-        ["Selector", "URLTest", "Fallback", "LoadBalance", "Relay"].contains(type)
+        ["Selector", "URLTest", "Fallback", "LoadBalance", "Relay"].contains(
+            type
+        )
     }
 }
 
 struct ProxiesView: View {
     @State private var viewModel = ProxiesViewModel()
-    
+
     let modes = ["Global", "Rule", "Direct"]
-    
+
     var filteredProxyGroups: [ProxiesViewModel.ProxyGroup] {
         switch viewModel.proxyMode {
         case "global":
@@ -159,7 +179,7 @@ struct ProxiesView: View {
             return viewModel.proxyGroups.filter { $0.name != "GLOBAL" }
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             VStack {
@@ -175,8 +195,15 @@ struct ProxiesView: View {
                                     .font(.system(size: 12, weight: .medium))
                                     .padding(.vertical, 6)
                                     .padding(.horizontal, 12)
-                                    .background(viewModel.proxyMode == mode.lowercased() ? Color.blue : Color.clear)
-                                    .foregroundStyle(viewModel.proxyMode == mode.lowercased() ? Color(nsColor: .selectedTextColor) : .secondary)
+                                    .background(
+                                        viewModel.proxyMode == mode.lowercased()
+                                            ? Color.blue : Color.clear
+                                    )
+                                    .foregroundStyle(
+                                        viewModel.proxyMode == mode.lowercased()
+                                            ? Color(nsColor: .selectedTextColor)
+                                            : .secondary
+                                    )
                             }
                             .buttonStyle(.plain)
                         }
@@ -188,7 +215,7 @@ struct ProxiesView: View {
             .padding(.horizontal, 30)
             .padding(.top, 30)
             .padding(.bottom, 20)
-            
+
             if filteredProxyGroups.isEmpty && !viewModel.isLoading {
                 VStack(spacing: 12) {
                     Spacer()
@@ -223,12 +250,17 @@ struct ProxiesView: View {
                                 testingProxies: viewModel.testingProxies,
                                 onSelect: { proxy in
                                     Task {
-                                        await viewModel.selectProxy(group: group.name, proxy: proxy)
+                                        await viewModel.selectProxy(
+                                            group: group.name,
+                                            proxy: proxy
+                                        )
                                     }
                                 },
                                 onTestGroup: {
                                     Task {
-                                        await viewModel.testGroupDelay(groupName: group.name)
+                                        await viewModel.testGroupDelay(
+                                            groupName: group.name
+                                        )
                                     }
                                 }
                             )
@@ -261,11 +293,11 @@ struct ProxyGroupView: View {
     let onSelect: (String) -> Void
     let onTestGroup: () -> Void
     @State private var isExpanded = true
-    
+
     private var isSelectable: Bool {
         group.type == "Selector"
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button(action: { withAnimation { isExpanded.toggle() } }) {
@@ -277,7 +309,7 @@ struct ProxyGroupView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    
+
                     Button(action: onTestGroup) {
                         Image(systemName: "bolt")
                             .font(.system(size: 14, weight: .medium))
@@ -289,7 +321,7 @@ struct ProxyGroupView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.trailing, 8)
-                    
+
                     if let now = group.now {
                         Text(now)
                             .font(.subheadline)
@@ -306,9 +338,12 @@ struct ProxyGroupView: View {
                 .cornerRadius(8)
             }
             .buttonStyle(.plain)
-            
+
             if isExpanded {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 10) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 140))],
+                    spacing: 10
+                ) {
                     ForEach(group.all, id: \.self) { proxyName in
                         ProxyCard(
                             name: proxyName,
@@ -337,7 +372,7 @@ struct ProxyCard: View {
     var isTesting: Bool = false
     var isSelectable: Bool = true
     let action: () -> Void
-    
+
     var latencyColor: Color {
         if isSelected { return Color(nsColor: .selectedTextColor) }
         if latency == 0 { return .secondary }
@@ -345,15 +380,18 @@ struct ProxyCard: View {
         if latency < 500 { return .orange }
         return .red
     }
-    
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
                     .font(.subheadline)
                     .lineLimit(1)
-                    .foregroundStyle(isSelected ? Color(nsColor: .selectedTextColor) : .primary)
-                
+                    .foregroundStyle(
+                        isSelected
+                            ? Color(nsColor: .selectedTextColor) : .primary
+                    )
+
                 HStack {
                     if isTesting {
                         ProgressView()
@@ -371,7 +409,11 @@ struct ProxyCard: View {
                 }
             }
             .padding(10)
-            .background(isSelected ? Color.blue.opacity(0.8) : Color(nsColor: .controlBackgroundColor))
+            .background(
+                isSelected
+                    ? Color.blue.opacity(0.8)
+                    : Color(nsColor: .controlBackgroundColor)
+            )
             .cornerRadius(8)
             .opacity(isSelectable ? 1.0 : 0.7)
         }

@@ -1,5 +1,5 @@
-import SwiftUI
 import Observation
+import SwiftUI
 
 @Observable
 class ConnectionsViewModel {
@@ -9,8 +9,9 @@ class ConnectionsViewModel {
     var totalUpload: Int64 = 0
     private var timer: Timer?
     private var lastUpdate: Date?
-    private var previousTraffic: [String: (upload: Int64, download: Int64)] = [:]
-    
+    private var previousTraffic: [String: (upload: Int64, download: Int64)] =
+        [:]
+
     struct ConnectionItem: Identifiable {
         let id: String
         let host: String
@@ -28,49 +29,59 @@ class ConnectionsViewModel {
         let download: String
         let upload: String
     }
-    
+
     func startPolling() {
         stopPolling()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) {
+            [weak self] _ in
             Task { @MainActor in
                 await self?.fetchConnections()
             }
         }
         Task { await fetchConnections() }
     }
-    
+
     func stopPolling() {
         timer?.invalidate()
         timer = nil
     }
-    
+
     func fetchConnections() async {
         do {
             let response = try await ClashAPI.shared.getConnections()
             let now = Date()
-            let timeDelta = lastUpdate != nil ? now.timeIntervalSince(lastUpdate!) : 1.0
-            
+            let timeDelta =
+                lastUpdate != nil ? now.timeIntervalSince(lastUpdate!) : 1.0
+
             await MainActor.run {
                 self.totalDownload = response.downloadTotal
                 self.totalUpload = response.uploadTotal
-                
+
                 self.connections = response.connections.map { conn in
                     let prev = previousTraffic[conn.id]
-                    let uploadSpeedBytes = prev != nil ? Double(conn.upload - prev!.upload) / timeDelta : 0
-                    let downloadSpeedBytes = prev != nil ? Double(conn.download - prev!.download) / timeDelta : 0
-                    
+                    let uploadSpeedBytes =
+                        prev != nil
+                        ? Double(conn.upload - prev!.upload) / timeDelta : 0
+                    let downloadSpeedBytes =
+                        prev != nil
+                        ? Double(conn.download - prev!.download) / timeDelta : 0
+
                     previousTraffic[conn.id] = (conn.upload, conn.download)
 
-                    
-                    let host = conn.metadata.host.isEmpty ? (conn.metadata.destinationIP ?? "Unknown") : conn.metadata.host
+                    let host =
+                        conn.metadata.host.isEmpty
+                        ? (conn.metadata.destinationIP ?? "Unknown")
+                        : conn.metadata.host
                     let destIP = conn.metadata.destinationIP ?? ""
                     let destPort = conn.metadata.destinationPort ?? ""
-                    
+
                     let formatter = ISO8601DateFormatter()
 
-                    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    formatter.formatOptions = [
+                        .withInternetDateTime, .withFractionalSeconds,
+                    ]
                     let startDate = formatter.date(from: conn.start) ?? Date()
-                    
+
                     return ConnectionItem(
                         id: conn.id,
                         host: host,
@@ -82,28 +93,31 @@ class ConnectionsViewModel {
                         type: conn.metadata.type,
                         chain: conn.chains,
                         rule: conn.rule,
-                        downloadSpeed: ByteUtils.format(Int64(downloadSpeedBytes)) + "/s",
-                        uploadSpeed: ByteUtils.format(Int64(uploadSpeedBytes)) + "/s",
+                        downloadSpeed: ByteUtils.format(
+                            Int64(downloadSpeedBytes)
+                        ) + "/s",
+                        uploadSpeed: ByteUtils.format(Int64(uploadSpeedBytes))
+                            + "/s",
                         startTime: startDate,
                         download: ByteUtils.format(conn.download),
                         upload: ByteUtils.format(conn.upload)
                     )
                 }.sorted(by: { $0.startTime > $1.startTime })
-                
+
                 let currentIds = Set(response.connections.map { $0.id })
 
                 let oldIds = Set(previousTraffic.keys)
                 for id in oldIds.subtracting(currentIds) {
                     previousTraffic.removeValue(forKey: id)
                 }
-                
+
                 lastUpdate = now
             }
         } catch {
             print("Failed to fetch connections: \(error)")
         }
     }
-    
+
     func closeConnection(id: String) async {
         do {
             try await ClashAPI.shared.closeConnection(id: id)
@@ -117,7 +131,7 @@ class ConnectionsViewModel {
             print("Failed to close connection: \(error)")
         }
     }
-    
+
     func closeAllConnections() async {
         do {
             try await ClashAPI.shared.closeAllConnections()
@@ -145,22 +159,30 @@ struct ByteUtils {
 
 struct ConnectionsView: View {
     @State private var viewModel = ConnectionsViewModel()
-    
+
     var filteredConnections: [ConnectionsViewModel.ConnectionItem] {
         if viewModel.searchText.isEmpty {
             return viewModel.connections
         } else {
             return viewModel.connections.filter {
-                $0.host.localizedCaseInsensitiveContains(viewModel.searchText) ||
-                $0.destinationIP.localizedCaseInsensitiveContains(viewModel.searchText) ||
-                $0.rule.localizedCaseInsensitiveContains(viewModel.searchText)
+                $0.host.localizedCaseInsensitiveContains(viewModel.searchText)
+                    || $0.destinationIP.localizedCaseInsensitiveContains(
+                        viewModel.searchText
+                    )
+                    || $0.rule.localizedCaseInsensitiveContains(
+                        viewModel.searchText
+                    )
             }
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 20) {
-            SettingsHeader(title: "Connections", subtitle: "Total Download: \(ByteUtils.format(viewModel.totalDownload))  Upload: \(ByteUtils.format(viewModel.totalUpload))") {
+            SettingsHeader(
+                title: "Connections",
+                subtitle:
+                    "Total Download: \(ByteUtils.format(viewModel.totalDownload))  Upload: \(ByteUtils.format(viewModel.totalUpload))"
+            ) {
                 ClearButton(title: "Close All") {
                     Task {
                         await viewModel.closeAllConnections()
@@ -169,16 +191,21 @@ struct ConnectionsView: View {
             }
             .padding(.horizontal, 30)
             .padding(.top, 30)
-            
-            SearchField(placeholder: "Search Host, IP, Rule...", text: $viewModel.searchText)
-                .padding(.horizontal, 30)
-            
+
+            SearchField(
+                placeholder: "Search Host, IP, Rule...",
+                text: $viewModel.searchText
+            )
+            .padding(.horizontal, 30)
+
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(filteredConnections) { connection in
                         ConnectionRow(connection: connection) {
                             Task {
-                                await viewModel.closeConnection(id: connection.id)
+                                await viewModel.closeConnection(
+                                    id: connection.id
+                                )
                             }
                         }
                     }
@@ -200,7 +227,7 @@ struct ConnectionRow: View {
     let connection: ConnectionsViewModel.ConnectionItem
     let onClose: () -> Void
     @State private var isHovered = false
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -209,23 +236,28 @@ struct ConnectionRow: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    
-                    Text("\(connection.destinationIP):\(connection.destinationPort)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+
+                    Text(
+                        "\(connection.destinationIP):\(connection.destinationPort)"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                
+
                 HStack(spacing: 12) {
                     Label(connection.network, systemImage: "network")
-                    Label(connection.chain.joined(separator: " -> "), systemImage: "arrow.triangle.branch")
+                    Label(
+                        connection.chain.joined(separator: " -> "),
+                        systemImage: "arrow.triangle.branch"
+                    )
                     Label(connection.rule, systemImage: "text.magnifyingglass")
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }
-            
+
             Spacer()
-            
+
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(connection.downloadSpeed)
@@ -234,7 +266,7 @@ struct ConnectionRow: View {
                         .foregroundStyle(.green)
                 }
                 .font(.system(size: 13))
-                
+
                 HStack(spacing: 8) {
                     HStack(spacing: 2) {
                         Image(systemName: "arrow.down")
@@ -249,7 +281,7 @@ struct ConnectionRow: View {
                 .foregroundStyle(.secondary)
             }
             .padding(.trailing, 10)
-            
+
             if isHovered {
                 Button(action: onClose) {
                     Image(systemName: "xmark.circle.fill")
@@ -262,7 +294,11 @@ struct ConnectionRow: View {
             }
         }
         .padding(12)
-        .background(isHovered ? Color.primary.opacity(0.1) : Color(nsColor: .controlBackgroundColor))
+        .background(
+            isHovered
+                ? Color.primary.opacity(0.1)
+                : Color(nsColor: .controlBackgroundColor)
+        )
         .cornerRadius(8)
         .onHover { hovering in
             isHovered = hovering

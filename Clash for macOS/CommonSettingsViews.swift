@@ -3,7 +3,7 @@ import SwiftUI
 struct SearchField: View {
     let placeholder: String
     @Binding var text: String
-    
+
     var body: some View {
         HStack {
             Image(systemName: "magnifyingglass")
@@ -20,7 +20,7 @@ enum DateFormatters {
         formatter.dateFormat = "HH:mm:ss.SSS"
         return formatter
     }()
-    
+
     static let mediumDateTime: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -36,7 +36,7 @@ func formatSpeed(_ bytesPerSecond: Int64) -> String {
     let kb = Double(bytesPerSecond) / 1024
     let mb = kb / 1024
     let gb = mb / 1024
-    
+
     if gb >= 1 {
         return String(format: "%.2f GB/s", gb)
     } else if mb >= 1 {
@@ -52,13 +52,17 @@ struct SettingsHeader<Trailing: View>: View {
     let title: String
     let subtitle: String?
     @ViewBuilder let trailing: Trailing
-    
-    init(title: String, subtitle: String? = nil, @ViewBuilder trailing: () -> Trailing) {
+
+    init(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.trailing = trailing()
     }
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 5) {
@@ -66,7 +70,7 @@ struct SettingsHeader<Trailing: View>: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundStyle(.primary)
-                
+
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.caption)
@@ -90,13 +94,17 @@ struct SettingsSection<Content: View>: View {
     let title: String
     let icon: String?
     @ViewBuilder let content: Content
-    
-    init(title: String, icon: String? = nil, @ViewBuilder content: () -> Content) {
+
+    init(
+        title: String,
+        icon: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
         self.title = title
         self.icon = icon
         self.content = content()
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -108,7 +116,7 @@ struct SettingsSection<Content: View>: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
             }
-            
+
             VStack(alignment: .leading, spacing: 0) {
                 content
             }
@@ -123,13 +131,17 @@ struct SettingsRow<Content: View>: View {
     let title: String
     let subtitle: String?
     @ViewBuilder let control: Content
-    
-    init(title: String, subtitle: String? = nil, @ViewBuilder control: () -> Content) {
+
+    init(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder control: () -> Content
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.control = control()
     }
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -142,9 +154,9 @@ struct SettingsRow<Content: View>: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            
+
             Spacer()
-            
+
             control
         }
     }
@@ -155,7 +167,7 @@ struct ActionButton: View {
     let icon: String
     let color: Color
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
@@ -178,7 +190,7 @@ struct ActionButton: View {
 struct ClearButton: View {
     let title: String
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             Text(title)
