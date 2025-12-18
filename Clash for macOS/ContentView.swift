@@ -27,6 +27,7 @@ struct ContentView: View {
                 SettingsView()
             }
         }
+        .preferredColorScheme(AppSettings.shared.appearance.colorScheme)
         .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 200)
         .onAppear {
             dataService.startMonitoring()

@@ -33,7 +33,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func setupMainWindow() {
         let config = WindowSizeManager.shared.getCurrentWindowConfig()
         let contentView = ContentView()
-            .preferredColorScheme(AppSettings.shared.appearance.colorScheme)
             .frame(minWidth: config.minWidth, idealWidth: config.defaultWidth, maxWidth: .infinity, minHeight: config.minHeight, idealHeight: config.defaultHeight, maxHeight: .infinity)
         
         mainWindow = NSWindow(
