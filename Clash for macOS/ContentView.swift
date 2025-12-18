@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var selection: NavigationItem = .general
+    @Bindable private var navigationManager = NavigationManager.shared
     private var dataService: ClashDataService { ClashDataService.shared }
     
     var body: some View {
         NavigationSplitView {
-            SidebarView(selection: $selection)
+            SidebarView(selection: $navigationManager.selection)
         } detail: {
-            switch selection {
+            switch navigationManager.selection {
             case .general:
                 GeneralView()
             case .proxies:

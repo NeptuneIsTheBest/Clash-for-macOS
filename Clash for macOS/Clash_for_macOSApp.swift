@@ -1,5 +1,15 @@
 import SwiftUI
 
+@Observable
+class NavigationManager {
+    static let shared = NavigationManager()
+    var selection: NavigationItem = .general
+    
+    func navigateToSettings() {
+        selection = .settings
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     var mainWindow: NSWindow!
@@ -35,6 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainWindow.setFrameAutosaveName("Main Window")
         mainWindow.contentView = NSHostingView(rootView: contentView)
         mainWindow.isReleasedWhenClosed = false
+        mainWindow.tabbingMode = .disallowed
         mainWindow.delegate = self
     }
     
@@ -51,7 +62,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        // Hide window instead of closing to keep app running
         sender.orderOut(nil)
         return false 
     }
@@ -66,6 +76,15 @@ struct Clash_for_macOSApp: App {
     var body: some Scene {
         Settings {
             EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings...") {
+                    NavigationManager.shared.navigateToSettings()
+                    appDelegate.mainWindow.makeKeyAndOrderFront(nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }
