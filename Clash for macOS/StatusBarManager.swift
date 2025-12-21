@@ -237,7 +237,6 @@ class StatusBarManager: NSObject, ObservableObject {
 
         menu.addItem(NSMenuItem.separator())
 
-        let modeMenu = NSMenu()
         let modes = [
             ("Global", "global"), ("Rule", "rule"), ("Direct", "direct"),
         ]
@@ -250,15 +249,10 @@ class StatusBarManager: NSObject, ObservableObject {
             modeItem.target = self
             modeItem.representedObject = mode
             modeItem.state = proxyMode == mode ? .on : .off
-            modeMenu.addItem(modeItem)
+            menu.addItem(modeItem)
         }
-        let modeMenuItem = NSMenuItem(
-            title: "Proxy Mode",
-            action: nil,
-            keyEquivalent: ""
-        )
-        modeMenuItem.submenu = modeMenu
-        menu.addItem(modeMenuItem)
+
+        menu.addItem(NSMenuItem.separator())
 
         let proxiesMenu = NSMenu()
         let filteredGroups: [ProxyGroupInfo]
