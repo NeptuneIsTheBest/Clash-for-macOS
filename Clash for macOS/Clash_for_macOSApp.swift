@@ -12,9 +12,12 @@ class NavigationManager {
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
+    static var shared: AppDelegate?
+
     var mainWindow: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shared = self
         let manager = ClashCoreManager.shared
         let wasRunning = UserDefaults.standard.bool(
             forKey: "clashCoreWasRunning"
@@ -27,7 +30,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         setupMainWindow()
 
-        if !AppSettings.shared.silentStart {
+        let settings = AppSettings.shared
+        if settings.silentStart {
+            if settings.showMenuBarIcon {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        } else {
             mainWindow.makeKeyAndOrderFront(nil)
         }
     }
@@ -76,14 +84,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         hasVisibleWindows flag: Bool
     ) -> Bool {
         if !flag {
-            mainWindow.makeKeyAndOrderFront(nil)
+            showMainWindow()
         }
         return true
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         sender.orderOut(nil)
+        if AppSettings.shared.showMenuBarIcon {
+            NSApp.setActivationPolicy(.accessory)
+        }
         return false
+    }
+
+    func showMainWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        mainWindow.makeKeyAndOrderFront(nil)
     }
 }
 
@@ -100,7 +117,7 @@ struct Clash_for_macOSApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
                     NavigationManager.shared.navigateToSettings()
-                    appDelegate.mainWindow.makeKeyAndOrderFront(nil)
+                    appDelegate.showMainWindow()
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }

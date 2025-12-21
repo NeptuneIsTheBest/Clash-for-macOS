@@ -323,10 +323,7 @@ class StatusBarManager: NSObject, ObservableObject {
     }
 
     @objc private func openMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        if let appDelegate = NSApp.delegate as? AppDelegate {
-            appDelegate.mainWindow.makeKeyAndOrderFront(nil)
-        }
+        AppDelegate.shared?.showMainWindow()
     }
 
     @objc private func toggleSystemProxy() {
