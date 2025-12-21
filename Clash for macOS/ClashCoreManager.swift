@@ -35,7 +35,13 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
 
     var currentCoreType: ClashCoreType = .meta
     var coreStatus: CoreStatus = .notInstalled
-    var isRunning = false
+    var isRunning = false {
+        didSet {
+            if isRunning != oldValue {
+                UserDefaults.standard.set(isRunning, forKey: "clashCoreWasRunning")
+            }
+        }
+    }
 
     private var installedVersions: [ClashCoreType: String] = [:]
     private var coreProcess: Process?
@@ -263,7 +269,7 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
         process.standardError = pipe
 
         process.terminationHandler = { [weak self] terminatedProcess in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self = self else { return }
                 if self.coreProcess === terminatedProcess {
                     self.isRunning = false
@@ -326,11 +332,10 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
 
         if useServiceMode {
             HelperManager.shared.stopClashCore { [weak self] _, _ in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    Task { @MainActor in
-                        self?.isRunning = false
-                        self?.startCore()
-                    }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(500))
+                    self?.isRunning = false
+                    self?.startCore()
                 }
             }
         } else {
@@ -339,11 +344,9 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
                 coreProcess = nil
             }
             isRunning = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                [weak self] in
-                Task { @MainActor in
-                    self?.startCore()
-                }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(500))
+                self?.startCore()
             }
         }
     }
@@ -376,7 +379,7 @@ class ClashCoreManager: CoreHealthMonitorDelegate {
     func checkRunningStatus() {
         if useServiceMode {
             HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.isRunning = running
                 }
             }

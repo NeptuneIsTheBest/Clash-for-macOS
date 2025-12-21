@@ -68,10 +68,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        UserDefaults.standard.set(
-            ClashCoreManager.shared.isRunning,
-            forKey: "clashCoreWasRunning"
-        )
         ClashCoreManager.shared.stopCore()
     }
 

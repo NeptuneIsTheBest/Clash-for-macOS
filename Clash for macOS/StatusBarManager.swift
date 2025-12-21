@@ -68,7 +68,7 @@ class StatusBarManager: NSObject, ObservableObject {
     }
 
     @objc private func settingsChanged() {
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self = self else { return }
 
             if AppSettings.shared.showMenuBarIcon {

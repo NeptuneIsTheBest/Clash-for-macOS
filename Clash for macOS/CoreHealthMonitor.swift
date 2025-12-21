@@ -11,7 +11,7 @@ protocol CoreHealthMonitorDelegate: AnyObject {
 class CoreHealthMonitor {
     weak var delegate: CoreHealthMonitorDelegate?
 
-    private var healthCheckTimer: Timer?
+    private var healthCheckTask: Task<Void, Never>?
     private let healthCheckInterval: TimeInterval = 5.0
 
     private var autoRestartEnabled = true
@@ -32,22 +32,18 @@ class CoreHealthMonitor {
 
     func startMonitoring() {
         stopMonitoring()
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.healthCheckTimer = Timer.scheduledTimer(
-                withTimeInterval: self.healthCheckInterval,
-                repeats: true
-            ) { [weak self] _ in
-                Task { @MainActor in
-                    self?.performHealthCheck()
-                }
+        healthCheckTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self?.healthCheckInterval ?? 5.0))
+                guard !Task.isCancelled else { break }
+                self?.performHealthCheck()
             }
         }
     }
 
     func stopMonitoring() {
-        healthCheckTimer?.invalidate()
-        healthCheckTimer = nil
+        healthCheckTask?.cancel()
+        healthCheckTask = nil
     }
 
     func setManualStop(_ manual: Bool) {
@@ -65,7 +61,7 @@ class CoreHealthMonitor {
     private func performHealthCheck() {
         if useServiceMode {
             HelperManager.shared.isClashCoreRunning { [weak self] running, _ in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.handleHealthCheckResult(isRunning: running)
                 }
             }
@@ -100,11 +96,10 @@ class CoreHealthMonitor {
             "Attempting auto-restart (\(restartAttempts)/\(maxRestartAttempts))"
         )
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            Task { @MainActor in
-                guard let self = self else { return }
-                self.delegate?.healthMonitorRequestsRestart(self)
-            }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1.0))
+            guard let self = self else { return }
+            self.delegate?.healthMonitorRequestsRestart(self)
         }
     }
 }

@@ -285,7 +285,8 @@ struct ProfileEditorView: View {
 
         profile = updatedProfile
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
             isSaving = false
             isPresented = false
         }
@@ -300,7 +301,8 @@ struct ProfileEditorView: View {
             showCopyConfirm = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
             withAnimation {
                 showCopyConfirm = false
             }

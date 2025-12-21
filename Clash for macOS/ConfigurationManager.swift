@@ -7,7 +7,7 @@ class ConfigurationManager {
     static let shared = ConfigurationManager()
 
     private var cancellables = Set<AnyCancellable>()
-    private var syncWorkItem: DispatchWorkItem?
+    private var syncTask: Task<Void, Never>?
     private let debounceInterval: TimeInterval = 0.3
     private var isInitializing = true
 
@@ -24,10 +24,9 @@ class ConfigurationManager {
     private init() {
         setupObservers()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            Task { @MainActor in
-                self?.isInitializing = false
-            }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1.0))
+            self?.isInitializing = false
         }
     }
 
@@ -48,19 +47,13 @@ class ConfigurationManager {
     private func scheduleSync() {
         guard !isInitializing else { return }
 
-        syncWorkItem?.cancel()
+        syncTask?.cancel()
 
-        let workItem = DispatchWorkItem { [weak self] in
-            Task { @MainActor in
-                self?.syncConfiguration()
-            }
+        syncTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(self?.debounceInterval ?? 0.3))
+            guard !Task.isCancelled else { return }
+            self?.syncConfiguration()
         }
-        syncWorkItem = workItem
-
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + debounceInterval,
-            execute: workItem
-        )
     }
 
     func syncConfiguration() {
