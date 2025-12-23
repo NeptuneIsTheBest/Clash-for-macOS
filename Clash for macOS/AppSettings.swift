@@ -34,6 +34,9 @@ class AppSettings {
     var autoUpdateGeoIP = true { didSet { saveSettings() } }
     var geoUpdateInterval = 24 { didSet { saveSettings() } }
 
+    var profileStoreSelected = true { didSet { saveSettings() } }
+    var profileStoreFakeIP = true { didSet { saveSettings() } }
+
     var externalController = "127.0.0.1:9090" { didSet { saveSettings() } }
     var secret = "" { didSet { saveSettings() } }
 
@@ -133,6 +136,11 @@ class AppSettings {
         geoUpdateInterval =
             defaults.object(forKey: "geoUpdateInterval") as? Int ?? 24
 
+        profileStoreSelected =
+            defaults.object(forKey: "profileStoreSelected") as? Bool ?? true
+        profileStoreFakeIP =
+            defaults.object(forKey: "profileStoreFakeIP") as? Bool ?? true
+
         externalController =
             defaults.string(forKey: "externalController") ?? "127.0.0.1:9090"
         secret = defaults.string(forKey: "secret") ?? ""
@@ -179,6 +187,9 @@ class AppSettings {
         defaults.set(autoUpdateGeoIP, forKey: "autoUpdateGeoIP")
         defaults.set(geoUpdateInterval, forKey: "geoUpdateInterval")
 
+        defaults.set(profileStoreSelected, forKey: "profileStoreSelected")
+        defaults.set(profileStoreFakeIP, forKey: "profileStoreFakeIP")
+
         defaults.set(externalController, forKey: "externalController")
         defaults.set(secret, forKey: "secret")
 
@@ -216,6 +227,9 @@ class AppSettings {
 
         autoUpdateGeoIP = true
         geoUpdateInterval = 24
+
+        profileStoreSelected = true
+        profileStoreFakeIP = true
 
         externalController = "127.0.0.1:9090"
         generateSecret()

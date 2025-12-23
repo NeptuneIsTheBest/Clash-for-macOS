@@ -482,6 +482,46 @@ struct ClashSettingsView: View {
                         }
                     }
                 }
+
+                Divider()
+
+                SettingsRow(
+                    title: "Store Selected",
+                    subtitle: "Store selected proxy node"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.profileStoreSelected },
+                            set: { newValue in
+                                settings.profileStoreSelected = newValue
+                                reloadConfigIfRunning()
+                            }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                }
+
+                Divider()
+
+                SettingsRow(
+                    title: "Store Fake-IP",
+                    subtitle: "Store fake-ip cache"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.profileStoreFakeIP },
+                            set: { newValue in
+                                settings.profileStoreFakeIP = newValue
+                                reloadConfigIfRunning()
+                            }
+                        )
+                    )
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                }
             }
         }
     }

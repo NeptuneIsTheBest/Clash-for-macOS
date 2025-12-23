@@ -111,6 +111,9 @@ class ConfigurationManager {
             ipv6: \(settings.ipv6)
             geo-auto-update: \(settings.autoUpdateGeoIP)
             geo-update-interval: \(settings.geoUpdateInterval)
+            profile:
+              store-selected: \(settings.profileStoreSelected)
+              store-fake-ip: \(settings.profileStoreFakeIP)
             """
 
         if settings.tunMode {
@@ -159,6 +162,11 @@ class ConfigurationManager {
 
         config["geo-auto-update"] = settings.autoUpdateGeoIP
         config["geo-update-interval"] = settings.geoUpdateInterval
+
+        config["profile"] = [
+            "store-selected": settings.profileStoreSelected,
+            "store-fake-ip": settings.profileStoreFakeIP,
+        ]
 
         if settings.tunMode {
             config["tun"] = [
