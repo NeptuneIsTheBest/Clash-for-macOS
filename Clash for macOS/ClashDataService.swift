@@ -26,6 +26,7 @@ class ClashDataService {
 
     private init() {
         setupCoreStateObserver()
+        startMonitoring()
     }
 
     private func setupCoreStateObserver() {

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable private var navigationManager = NavigationManager.shared
-    private var dataService: ClashDataService { ClashDataService.shared }
 
     var body: some View {
         NavigationSplitView {
@@ -29,12 +28,6 @@ struct ContentView: View {
         }
         .preferredColorScheme(AppSettings.shared.appearance.colorScheme)
         .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 200)
-        .onAppear {
-            dataService.startMonitoring()
-        }
-        .onDisappear {
-            dataService.stopMonitoring()
-        }
     }
 }
 
