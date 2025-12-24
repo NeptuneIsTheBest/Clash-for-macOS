@@ -128,19 +128,33 @@ class StatusBarManager: NSObject, ObservableObject {
     }
 
     func formatSpeedShort(_ bytesPerSecond: Int64) -> String {
+        if bytesPerSecond == 0 {
+            return "0 B/s"
+        }
         let kb = Double(bytesPerSecond) / 1024
         let mb = kb / 1024
+        let gb = mb / 1024
 
-        if mb >= 10 {
-            return String(format: "%4.0fM", mb)
+        if gb >= 100 {
+            return String(format: "%.0f GB/s", gb)
+        } else if gb >= 10 {
+            return String(format: "%.1f GB/s", gb)
+        } else if gb >= 1 {
+            return String(format: "%.2f GB/s", gb)
+        } else if mb >= 100 {
+            return String(format: "%.0f MB/s", mb)
+        } else if mb >= 10 {
+            return String(format: "%.1f MB/s", mb)
         } else if mb >= 1 {
-            return String(format: "%4.1fM", mb)
+            return String(format: "%.2f MB/s", mb)
+        } else if kb >= 100 {
+            return String(format: "%.0f KB/s", kb)
         } else if kb >= 10 {
-            return String(format: "%4.0fK", kb)
+            return String(format: "%.1f KB/s", kb)
         } else if kb >= 1 {
-            return String(format: "%4.1fK", kb)
+            return String(format: "%.2f KB/s", kb)
         } else {
-            return String(format: "%4dB", bytesPerSecond)
+            return String(format: "%lld B/s", bytesPerSecond)
         }
     }
 
@@ -387,23 +401,30 @@ class StatusBarManager: NSObject, ObservableObject {
 struct StatusBarView: View {
     @ObservedObject var manager: StatusBarManager
 
+    private var speedTextWidth: CGFloat {
+        let font = NSFont.systemFont(ofSize: manager.fontSize)
+        let attributes = [NSAttributedString.Key.font: font]
+        let maxWidthString = "888.8 MB/s"
+        let size = (maxWidthString as NSString).size(withAttributes: attributes)
+        return ceil(size.width)
+    }
+
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "network")
                 .font(.system(size: manager.iconSize, weight: .medium))
 
             if manager.showSpeed {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("↑ \(manager.formatSpeedShort(manager.uploadSpeed))")
-                    Text("↓ \(manager.formatSpeedShort(manager.downloadSpeed))")
+                VStack(alignment: .trailing, spacing: -2) {
+                    Text("\(manager.formatSpeedShort(manager.uploadSpeed))")
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Text("\(manager.formatSpeedShort(manager.downloadSpeed))")
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
-                .font(
-                    .system(
-                        size: manager.fontSize,
-                        weight: .regular,
-                        design: .monospaced
-                    )
-                )
+                .font(.system(size: manager.fontSize))
+                .frame(width: speedTextWidth, alignment: .trailing)
             }
         }
         .padding(.horizontal, 4)

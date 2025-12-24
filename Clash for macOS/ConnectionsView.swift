@@ -93,11 +93,8 @@ class ConnectionsViewModel {
                         type: conn.metadata.type,
                         chain: conn.chains,
                         rule: conn.rule,
-                        downloadSpeed: ByteUtils.format(
-                            Int64(downloadSpeedBytes)
-                        ) + "/s",
-                        uploadSpeed: ByteUtils.format(Int64(uploadSpeedBytes))
-                            + "/s",
+                        downloadSpeed: formatSpeed(Int64(downloadSpeedBytes)),
+                        uploadSpeed: formatSpeed(Int64(uploadSpeedBytes)),
                         startTime: startDate,
                         download: ByteUtils.format(conn.download),
                         upload: ByteUtils.format(conn.upload)

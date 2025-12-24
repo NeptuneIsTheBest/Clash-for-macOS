@@ -516,6 +516,34 @@ class ClashAPI {
         )
     }
 
+    func healthCheckProxyProviderProxy(
+        providerName: String,
+        proxyName: String,
+        url: String = "http://www.gstatic.com/generate_204",
+        timeout: Int = 5000
+    ) async throws -> Int {
+        guard
+            let encodedProviderName = providerName.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed
+            ),
+            let encodedProxyName = proxyName.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed
+            )
+        else {
+            throw ClashAPIError.invalidURL
+        }
+        let queryItems = [
+            URLQueryItem(name: "url", value: url),
+            URLQueryItem(name: "timeout", value: String(timeout)),
+        ]
+        let info: DelayInfo = try await request(
+            method: "GET",
+            path: "providers/proxies/\(encodedProviderName)/\(encodedProxyName)/healthcheck",
+            queryItems: queryItems
+        )
+        return info.delay
+    }
+
     struct RulesResponse: Codable {
         let rules: [Rule]
     }
