@@ -2,6 +2,74 @@ import AppKit
 import Combine
 import SwiftUI
 
+extension NSMenuItem {
+    convenience init(
+        title: String,
+        action: Selector?,
+        target: AnyObject?,
+        keyEquivalent: String = "",
+        state: NSControl.StateValue = .off,
+        isEnabled: Bool = true,
+        representedObject: Any? = nil
+    ) {
+        self.init(title: title, action: action, keyEquivalent: keyEquivalent)
+        self.target = target
+        self.state = state
+        self.isEnabled = isEnabled
+        self.representedObject = representedObject
+    }
+}
+
+class MenuBuilder {
+    private let menu = NSMenu()
+    private weak var target: AnyObject?
+
+    init(target: AnyObject?) {
+        self.target = target
+    }
+
+    @discardableResult
+    func addItem(
+        title: String,
+        action: Selector?,
+        keyEquivalent: String = "",
+        state: NSControl.StateValue = .off,
+        isEnabled: Bool = true,
+        representedObject: Any? = nil
+    ) -> Self {
+        menu.addItem(NSMenuItem(
+            title: title,
+            action: action,
+            target: target,
+            keyEquivalent: keyEquivalent,
+            state: state,
+            isEnabled: isEnabled,
+            representedObject: representedObject
+        ))
+        return self
+    }
+
+    @discardableResult
+    func addSeparator() -> Self {
+        menu.addItem(.separator())
+        return self
+    }
+
+    @discardableResult
+    func addSubmenu(title: String, builder: (MenuBuilder) -> Void) -> Self {
+        let submenuBuilder = MenuBuilder(target: target)
+        builder(submenuBuilder)
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.submenu = submenuBuilder.build()
+        menu.addItem(item)
+        return self
+    }
+
+    func build() -> NSMenu {
+        menu
+    }
+}
+
 class LayoutSafeHostingView<Content: View>: NSView {
     private var hostingView: NSHostingView<Content>
 
@@ -216,124 +284,56 @@ class StatusBarManager: NSObject, ObservableObject {
     }
 
     private func updateMenu() {
-        let menu = NSMenu()
-
-        let openItem = NSMenuItem(
-            title: "Open Main Window",
-            action: #selector(openMainWindow),
-            keyEquivalent: "o"
-        )
-        openItem.target = self
-        menu.addItem(openItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        let systemProxyItem = NSMenuItem(
-            title: "System Proxy",
-            action: #selector(toggleSystemProxy),
-            keyEquivalent: ""
-        )
-        systemProxyItem.target = self
-        systemProxyItem.state = AppSettings.shared.systemProxy ? .on : .off
-        menu.addItem(systemProxyItem)
-
-        let tunItem = NSMenuItem(
-            title: "TUN Mode",
-            action: #selector(toggleTunMode),
-            keyEquivalent: ""
-        )
-        tunItem.target = self
-        tunItem.state = AppSettings.shared.tunMode ? .on : .off
+        let settings = AppSettings.shared
         let helperInstalled = HelperManager.shared.isHelperInstalled
-        let serviceEnabled = AppSettings.shared.serviceMode
-        tunItem.isEnabled = helperInstalled && serviceEnabled
-        menu.addItem(tunItem)
+        let tunEnabled = helperInstalled && settings.serviceMode
 
-        menu.addItem(NSMenuItem.separator())
-
-        let modes = [
-            ("Global", "global"), ("Rule", "rule"), ("Direct", "direct"),
-        ]
-        for (title, mode) in modes {
-            let modeItem = NSMenuItem(
-                title: title,
-                action: #selector(selectProxyMode(_:)),
-                keyEquivalent: ""
-            )
-            modeItem.target = self
-            modeItem.representedObject = mode
-            modeItem.state = proxyMode == mode ? .on : .off
-            menu.addItem(modeItem)
-        }
-
-        menu.addItem(NSMenuItem.separator())
-
-        let proxiesMenu = NSMenu()
-        let filteredGroups: [ProxyGroupInfo]
-        switch proxyMode {
-        case "global":
-            filteredGroups = proxyGroups.filter { $0.name == "GLOBAL" }
-        case "direct":
-            filteredGroups = []
-        default:
-            filteredGroups = proxyGroups.filter { $0.name != "GLOBAL" }
-        }
-
-        if filteredGroups.isEmpty {
-            let emptyItem = NSMenuItem(
-                title: "No proxy groups",
-                action: nil,
-                keyEquivalent: ""
-            )
-            emptyItem.isEnabled = false
-            proxiesMenu.addItem(emptyItem)
-        } else {
-            for group in filteredGroups {
-                let groupMenu = NSMenu()
-                for proxyName in group.all {
-                    let proxyItem = NSMenuItem(
-                        title: proxyName,
-                        action: #selector(selectProxy(_:)),
-                        keyEquivalent: ""
-                    )
-                    proxyItem.target = self
-                    proxyItem.representedObject = [
-                        "group": group.name, "proxy": proxyName,
-                    ]
-                    proxyItem.state = group.now == proxyName ? .on : .off
-                    let isSelectable = group.type == "Selector"
-                    proxyItem.isEnabled = isSelectable
-                    groupMenu.addItem(proxyItem)
-                }
-
-                let groupItem = NSMenuItem(
-                    title: group.name,
-                    action: nil,
-                    keyEquivalent: ""
-                )
-                groupItem.submenu = groupMenu
-                proxiesMenu.addItem(groupItem)
+        let filteredGroups: [ProxyGroupInfo] = {
+            switch proxyMode {
+            case "global": return proxyGroups.filter { $0.name == "GLOBAL" }
+            case "direct": return []
+            default: return proxyGroups.filter { $0.name != "GLOBAL" }
             }
-        }
-        let proxiesMenuItem = NSMenuItem(
-            title: "Proxies",
-            action: nil,
-            keyEquivalent: ""
-        )
-        proxiesMenuItem.submenu = proxiesMenu
-        menu.addItem(proxiesMenuItem)
+        }()
 
-        menu.addItem(NSMenuItem.separator())
-
-        let quitItem = NSMenuItem(
-            title: "Quit",
-            action: #selector(quitApp),
-            keyEquivalent: "q"
-        )
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        statusItem?.menu = menu
+        statusItem?.menu = MenuBuilder(target: self)
+            .addItem(title: "Open Main Window", action: #selector(openMainWindow), keyEquivalent: "o")
+            .addSeparator()
+            .addItem(title: "System Proxy", action: #selector(toggleSystemProxy),
+                     state: settings.systemProxy ? .on : .off)
+            .addItem(title: "TUN Mode", action: #selector(toggleTunMode),
+                     state: settings.tunMode ? .on : .off, isEnabled: tunEnabled)
+            .addSeparator()
+            .addItem(title: "Global", action: #selector(selectProxyMode(_:)),
+                     state: proxyMode == "global" ? .on : .off, representedObject: "global")
+            .addItem(title: "Rule", action: #selector(selectProxyMode(_:)),
+                     state: proxyMode == "rule" ? .on : .off, representedObject: "rule")
+            .addItem(title: "Direct", action: #selector(selectProxyMode(_:)),
+                     state: proxyMode == "direct" ? .on : .off, representedObject: "direct")
+            .addSeparator()
+            .addSubmenu(title: "Proxies") { submenu in
+                if filteredGroups.isEmpty {
+                    submenu.addItem(title: "No proxy groups", action: nil, isEnabled: false)
+                } else {
+                    for group in filteredGroups {
+                        submenu.addSubmenu(title: group.name) { groupMenu in
+                            let isSelectable = group.type == "Selector"
+                            for proxyName in group.all {
+                                groupMenu.addItem(
+                                    title: proxyName,
+                                    action: #selector(selectProxy(_:)),
+                                    state: group.now == proxyName ? .on : .off,
+                                    isEnabled: isSelectable,
+                                    representedObject: ["group": group.name, "proxy": proxyName]
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            .addSeparator()
+            .addItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
+            .build()
     }
 
     @objc private func openMainWindow() {
