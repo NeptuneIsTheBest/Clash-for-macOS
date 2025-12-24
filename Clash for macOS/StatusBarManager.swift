@@ -86,6 +86,16 @@ class StatusBarManager: NSObject, ObservableObject {
 
     private var dataService: ClashDataService { ClashDataService.shared }
 
+    private var cachedFont: NSFont?
+    private var cachedParagraphStyle: NSMutableParagraphStyle?
+    private var cachedAttributes: [NSAttributedString.Key: Any]?
+    private var cachedNetworkIcon: NSImage?
+    private var cachedSpeedTextWidth: CGFloat = 0
+    private var cachedShowSpeed: Bool = false
+    private var lastUploadSpeed: Int64 = -1
+    private var lastDownloadSpeed: Int64 = -1
+    private var needsFullRedraw: Bool = true
+
     struct ProxyGroupInfo {
         let name: String
         let type: String
@@ -119,6 +129,7 @@ class StatusBarManager: NSObject, ObservableObject {
                     self.createStatusItem()
                 }
                 self.showSpeed = AppSettings.shared.showSpeedInStatusBar
+                self.invalidateDrawingCache()
                 self.updateStatusItemImage()
             } else {
                 self.removeStatusItem()
@@ -360,50 +371,96 @@ class StatusBarManager: NSObject, ObservableObject {
         NSApplication.shared.terminate(nil)
     }
 
+    private func ensureDrawingResourcesCached() {
+        let currentFontSize = round(self.fontSize)
+        
+        if cachedFont == nil || cachedFont!.pointSize != currentFontSize {
+            cachedFont = NSFont.monospacedDigitSystemFont(ofSize: currentFontSize, weight: .bold)
+            needsFullRedraw = true
+        }
+        
+        if cachedParagraphStyle == nil {
+            cachedParagraphStyle = NSMutableParagraphStyle()
+            cachedParagraphStyle!.alignment = .right
+        }
+        
+        if cachedAttributes == nil || needsFullRedraw {
+            cachedAttributes = [
+                .font: cachedFont!,
+                .paragraphStyle: cachedParagraphStyle!,
+                .foregroundColor: NSColor.black
+            ]
+        }
+        
+        if cachedNetworkIcon == nil {
+            cachedNetworkIcon = NSImage(systemSymbolName: "network", accessibilityDescription: "Network")
+            cachedNetworkIcon?.isTemplate = true
+        }
+        
+        if cachedShowSpeed != showSpeed || needsFullRedraw {
+            cachedShowSpeed = showSpeed
+            if showSpeed {
+                let maxWidthString = "888.8 MB/s"
+                let size = (maxWidthString as NSString).size(withAttributes: cachedAttributes!)
+                cachedSpeedTextWidth = ceil(size.width)
+            } else {
+                cachedSpeedTextWidth = 0
+            }
+            needsFullRedraw = true
+        }
+    }
+    
+    private func invalidateDrawingCache() {
+        cachedFont = nil
+        cachedParagraphStyle = nil
+        cachedAttributes = nil
+        cachedNetworkIcon = nil
+        cachedSpeedTextWidth = 0
+        needsFullRedraw = true
+    }
+
     private func updateStatusItemImage() {
         guard let button = statusItem?.button else { return }
+        
+        let currentUpload = uploadSpeed
+        let currentDownload = downloadSpeed
+        let speedChanged = currentUpload != lastUploadSpeed || currentDownload != lastDownloadSpeed
+        
+        if !needsFullRedraw && !speedChanged {
+            return
+        }
+        
+        ensureDrawingResourcesCached()
+        
+        lastUploadSpeed = currentUpload
+        lastDownloadSpeed = currentDownload
+        needsFullRedraw = false
 
         let padding: CGFloat = 4.0
         let innerSpacing: CGFloat = 4.0
-        
         let iconSize = round(self.iconSize)
-        let fontSize = round(self.fontSize)
         
-        let font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .bold)
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .right
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .paragraphStyle: paragraphStyle,
-            .foregroundColor: NSColor.black
-        ]
-        
-        let speedTextWidth: CGFloat
-        if showSpeed {
-            let maxWidthString = "888.8 MB/s"
-            let size = (maxWidthString as NSString).size(withAttributes: attributes)
-            speedTextWidth = ceil(size.width)
-        } else {
-            speedTextWidth = 0
-        }
-        
-        let width = padding + iconSize + (showSpeed ? innerSpacing + speedTextWidth : 0) + padding
+        let width = padding + iconSize + (showSpeed ? innerSpacing + cachedSpeedTextWidth : 0) + padding
         let height = statusBarHeight
         let size = NSSize(width: round(width), height: round(height))
+        
+        guard let font = cachedFont,
+              let attributes = cachedAttributes,
+              let networkIcon = cachedNetworkIcon else {
+            return
+        }
+        
+        let speedTextWidth = cachedSpeedTextWidth
+        let currentShowSpeed = showSpeed
+        let upText = currentShowSpeed ? formatSpeedShort(currentUpload) : ""
+        let downText = currentShowSpeed ? formatSpeedShort(currentDownload) : ""
         
         let image = NSImage(size: size, flipped: false) { rect in
             let iconY = round((size.height - iconSize) / 2)
             let iconRect = NSRect(x: padding, y: iconY, width: iconSize, height: iconSize)
+            networkIcon.draw(in: iconRect)
             
-            if let iconImage = NSImage(systemSymbolName: "network", accessibilityDescription: "Network") {
-                iconImage.isTemplate = true
-                iconImage.draw(in: iconRect)
-            }
-            
-            if self.showSpeed {
-                let upText = self.formatSpeedShort(self.uploadSpeed)
-                let downText = self.formatSpeedShort(self.downloadSpeed)
-                
+            if currentShowSpeed {
                 let textX = padding + iconSize + innerSpacing
                 let lineHeight = font.ascender - font.descender
                 let centerY = size.height / 2
