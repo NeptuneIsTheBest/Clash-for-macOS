@@ -70,31 +70,6 @@ class MenuBuilder {
     }
 }
 
-class LayoutSafeHostingView<Content: View>: NSView {
-    private var hostingView: NSHostingView<Content>
-
-    init(rootView: Content) {
-        hostingView = NSHostingView(rootView: rootView)
-        super.init(frame: .zero)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(hostingView)
-        NSLayoutConstraint.activate([
-            hostingView.topAnchor.constraint(equalTo: topAnchor),
-            hostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            hostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            hostingView.trailingAnchor.constraint(equalTo: trailingAnchor),
-        ])
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layout() {
-        super.layout()
-    }
-}
-
 class StatusBarManager: NSObject, ObservableObject {
     static let shared = StatusBarManager()
 
@@ -144,6 +119,7 @@ class StatusBarManager: NSObject, ObservableObject {
                     self.createStatusItem()
                 }
                 self.showSpeed = AppSettings.shared.showSpeedInStatusBar
+                self.updateStatusItemImage()
             } else {
                 self.removeStatusItem()
             }
@@ -155,21 +131,7 @@ class StatusBarManager: NSObject, ObservableObject {
             withLength: NSStatusItem.variableLength
         )
 
-        if let button = statusItem?.button {
-            let view = LayoutSafeHostingView(
-                rootView: StatusBarView(manager: self)
-            )
-            view.translatesAutoresizingMaskIntoConstraints = false
-            button.addSubview(view)
-
-            NSLayoutConstraint.activate([
-                view.topAnchor.constraint(equalTo: button.topAnchor),
-                view.bottomAnchor.constraint(equalTo: button.bottomAnchor),
-                view.leadingAnchor.constraint(equalTo: button.leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: button.trailingAnchor),
-            ])
-        }
-
+        updateStatusItemImage()
         updateMenu()
         startSpeedSync()
         refreshProxyData()
@@ -188,11 +150,11 @@ class StatusBarManager: NSObject, ObservableObject {
     }
 
     var iconSize: CGFloat {
-        max(12, statusBarHeight * 0.7)
+        round(statusBarHeight * 0.8)
     }
 
     var fontSize: CGFloat {
-        max(7, statusBarHeight * 0.4)
+        round(statusBarHeight * 0.4)
     }
 
     func formatSpeedShort(_ bytesPerSecond: Int64) -> String {
@@ -235,6 +197,7 @@ class StatusBarManager: NSObject, ObservableObject {
                 guard let self = self else { return }
                 self.uploadSpeed = self.dataService.uploadSpeed
                 self.downloadSpeed = self.dataService.downloadSpeed
+                self.updateStatusItemImage()
             }
         }
     }
@@ -396,39 +359,68 @@ class StatusBarManager: NSObject, ObservableObject {
         ClashCoreManager.shared.stopCore()
         NSApplication.shared.terminate(nil)
     }
-}
 
-struct StatusBarView: View {
-    @ObservedObject var manager: StatusBarManager
+    private func updateStatusItemImage() {
+        guard let button = statusItem?.button else { return }
 
-    private var speedTextWidth: CGFloat {
-        let font = NSFont.systemFont(ofSize: manager.fontSize)
-        let attributes = [NSAttributedString.Key.font: font]
-        let maxWidthString = "888.8 MB/s"
-        let size = (maxWidthString as NSString).size(withAttributes: attributes)
-        return ceil(size.width)
-    }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "network")
-                .font(.system(size: manager.iconSize, weight: .medium))
-
-            if manager.showSpeed {
-                VStack(alignment: .trailing, spacing: -2) {
-                    Text("\(manager.formatSpeedShort(manager.uploadSpeed))")
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                    Text("\(manager.formatSpeedShort(manager.downloadSpeed))")
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-                .font(.system(size: manager.fontSize))
-                .frame(width: speedTextWidth, alignment: .trailing)
-            }
+        let padding: CGFloat = 4.0
+        let innerSpacing: CGFloat = 4.0
+        
+        let iconSize = round(self.iconSize)
+        let fontSize = round(self.fontSize)
+        
+        let font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .bold)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .right
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .paragraphStyle: paragraphStyle,
+            .foregroundColor: NSColor.black
+        ]
+        
+        let speedTextWidth: CGFloat
+        if showSpeed {
+            let maxWidthString = "888.8 MB/s"
+            let size = (maxWidthString as NSString).size(withAttributes: attributes)
+            speedTextWidth = ceil(size.width)
+        } else {
+            speedTextWidth = 0
         }
-        .padding(.horizontal, 4)
-        .fixedSize()
-        .allowsHitTesting(false)
+        
+        let width = padding + iconSize + (showSpeed ? innerSpacing + speedTextWidth : 0) + padding
+        let height = statusBarHeight
+        let size = NSSize(width: round(width), height: round(height))
+        
+        let image = NSImage(size: size, flipped: false) { rect in
+            let iconY = round((size.height - iconSize) / 2)
+            let iconRect = NSRect(x: padding, y: iconY, width: iconSize, height: iconSize)
+            
+            if let iconImage = NSImage(systemSymbolName: "network", accessibilityDescription: "Network") {
+                iconImage.isTemplate = true
+                iconImage.draw(in: iconRect)
+            }
+            
+            if self.showSpeed {
+                let upText = self.formatSpeedShort(self.uploadSpeed)
+                let downText = self.formatSpeedShort(self.downloadSpeed)
+                
+                let textX = padding + iconSize + innerSpacing
+                let lineHeight = font.ascender - font.descender
+                let centerY = size.height / 2
+                
+                let upY = round(centerY)
+                let upRect = NSRect(x: textX, y: upY, width: speedTextWidth, height: lineHeight)
+                (upText as NSString).draw(in: upRect, withAttributes: attributes)
+
+                let downY = round(centerY - lineHeight * 0.9)
+                let downRect = NSRect(x: textX, y: downY, width: speedTextWidth, height: lineHeight)
+                (downText as NSString).draw(in: downRect, withAttributes: attributes)
+            }
+            return true
+        }
+        
+        image.isTemplate = true
+        button.image = image
+        button.imagePosition = .imageOnly
     }
 }
