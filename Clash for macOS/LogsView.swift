@@ -20,7 +20,7 @@ enum LogLevel: String, CaseIterable {
 }
 
 struct LogEntry: Identifiable {
-    let id = UUID()
+    let id: Int64
     let timestamp: Date
     let level: LogLevel
     let type: String
@@ -37,6 +37,7 @@ class LogViewModel {
     var logs: [LogEntry] = []
     var isStreaming = false
     private var streamTask: Task<Void, Never>?
+    private var nextLogId: Int64 = 0
 
     func startStreaming() {
         guard !isStreaming else { return }
@@ -59,11 +60,13 @@ class LogViewModel {
                         let (type, payload) = parsePayload(message.payload)
 
                         let entry = LogEntry(
+                            id: nextLogId,
                             timestamp: Date(),
                             level: level,
                             type: type,
                             payload: payload
                         )
+                        nextLogId += 1
 
                         logs.insert(entry, at: 0)
 

@@ -134,6 +134,7 @@ class ConnectionsViewModel {
             try await ClashAPI.shared.closeAllConnections()
             await MainActor.run {
                 connections.removeAll()
+                previousTraffic.removeAll()
             }
         } catch {
             print("Failed to close all connections: \(error)")
