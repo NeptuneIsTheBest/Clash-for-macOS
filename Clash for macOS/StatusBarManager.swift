@@ -21,11 +21,15 @@ extension NSMenuItem {
 }
 
 class MenuBuilder {
-    private let menu = NSMenu()
+    private let menu: NSMenu
     private weak var target: AnyObject?
 
-    init(target: AnyObject?) {
+    init(target: AnyObject?, menu: NSMenu? = nil) {
         self.target = target
+        self.menu = menu ?? NSMenu()
+        if menu != nil {
+            self.menu.removeAllItems()
+        }
     }
 
     @discardableResult
@@ -70,7 +74,7 @@ class MenuBuilder {
     }
 }
 
-class StatusBarManager: NSObject, ObservableObject {
+class StatusBarManager: NSObject, ObservableObject, NSMenuDelegate {
     static let shared = StatusBarManager()
 
     private var statusItem: NSStatusItem?
@@ -251,6 +255,10 @@ class StatusBarManager: NSObject, ObservableObject {
         }
     }
 
+    func menuWillOpen(_ menu: NSMenu) {
+        refreshProxyData()
+    }
+
     private func isProxyGroup(_ type: String) -> Bool {
         ["Selector", "URLTest", "Fallback", "LoadBalance", "Relay"].contains(
             type
@@ -270,7 +278,8 @@ class StatusBarManager: NSObject, ObservableObject {
             }
         }()
 
-        statusItem?.menu = MenuBuilder(target: self)
+        let menuBuilder = MenuBuilder(target: self, menu: statusItem?.menu)
+        let menu = menuBuilder
             .addItem(title: "Open Main Window", action: #selector(openMainWindow), keyEquivalent: "o")
             .addSeparator()
             .addItem(title: "System Proxy", action: #selector(toggleSystemProxy),
@@ -307,7 +316,10 @@ class StatusBarManager: NSObject, ObservableObject {
             }
             .addSeparator()
             .addItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
+
             .build()
+        menu.delegate = self
+        statusItem?.menu = menu
     }
 
     @objc private func openMainWindow() {
@@ -340,6 +352,7 @@ class StatusBarManager: NSObject, ObservableObject {
                     self.proxyMode = mode
                     self.updateMenu()
                     self.refreshProxyData()
+                    NotificationCenter.default.post(name: .clashConfigChanged, object: nil)
                 }
             } catch {
             }
@@ -360,6 +373,7 @@ class StatusBarManager: NSObject, ObservableObject {
                 )
                 await MainActor.run {
                     self.refreshProxyData()
+                    NotificationCenter.default.post(name: .clashProxyChanged, object: nil)
                 }
             } catch {
             }

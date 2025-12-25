@@ -283,6 +283,16 @@ struct ProxiesView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .clashConfigChanged)) { _ in
+            Task {
+                await viewModel.loadMode()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .clashProxyChanged)) { _ in
+            Task {
+                await viewModel.loadProxies()
+            }
+        }
     }
 }
 

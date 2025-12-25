@@ -29,6 +29,11 @@ enum ClashAPIError: LocalizedError {
     }
 }
 
+extension Notification.Name {
+    static let clashProxyChanged = Notification.Name("clashProxyChanged")
+    static let clashConfigChanged = Notification.Name("clashConfigChanged")
+}
+
 struct EmptyResponse: Decodable {}
 
 class ClashAPI {
