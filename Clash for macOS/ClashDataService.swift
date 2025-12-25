@@ -18,7 +18,7 @@ class ClashDataService {
     private var isMonitoring = false
     private let maxRetryAttempts = 10
     private let baseRetryDelay: TimeInterval = 1.0
-    private let maxRetryDelay: TimeInterval = 30.0
+    private let maxRetryDelay: TimeInterval = 10.0
 
     private var coreStateObserver: AnyCancellable?
 
