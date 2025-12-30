@@ -643,8 +643,12 @@ class ClashAPI {
         )
     }
 
-    func getGroups() async throws -> [String: ProxyNode] {
-        let response: ProxiesResponse = try await request(
+    struct GroupsResponse: Codable {
+        let proxies: [ProxyNode]
+    }
+
+    func getGroups() async throws -> [ProxyNode] {
+        let response: GroupsResponse = try await request(
             method: "GET",
             path: "group"
         )
@@ -704,13 +708,14 @@ class ClashAPI {
         let name: String
         let type: String
         let behavior: String
+        let format: String?
         let path: String?
         let count: Int
         let interval: Int?
         let updatedAt: String?
 
         enum CodingKeys: String, CodingKey {
-            case name, type, behavior, path, interval, updatedAt
+            case name, type, behavior, format, path, interval, updatedAt
             case count = "ruleCount"
         }
     }
@@ -738,15 +743,22 @@ class ClashAPI {
     }
 
     struct DNSQueryResponse: Codable {
-        let status: String
-        let result: [DNSRecord]?
+        let Status: Int
+        let Answer: [DNSRecord]?
+        let Question: [DNSQuestion]?
+    }
+
+    struct DNSQuestion: Codable {
+        let Name: String
+        let Qtype: Int
+        let Qclass: Int
     }
 
     struct DNSRecord: Codable {
+        let TTL: Int
         let data: String
         let name: String
         let type: Int
-        let ttl: Int
     }
 
     func dnsQuery(name: String, type: String = "A") async throws
